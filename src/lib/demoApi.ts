@@ -7,7 +7,7 @@ import { addDays, norm, toDateStr, uid } from './format';
  *  của trình duyệt và mô phỏng đúng luật phân quyền của database.
  * ===================================================================== */
 
-const KEY = 'kc-crm-demo-v2';
+const KEY = 'kc-crm-demo-v3';
 const SESSION = 'kc-crm-demo-session';
 
 interface DB { profiles: Profile[]; customers: Customer[]; seq: number; oseq: number }
@@ -82,6 +82,7 @@ function seed(): DB {
       activities: (r.acts ?? []).map(([d, type, content]) => ({ id: uid(), customer_id: id, type, content, created_by: r.owner, created_at: iso(d) })),
       notes: (r.notes ?? []).map((text) => ({ id: uid(), customer_id: id, text, author_id: r.owner, created_at: iso(5) })),
       follow_ups: (r.fu ?? []).map(([d, content, priority]) => ({ id: uid(), customer_id: id, due_date: day(d), content, priority, done: false, assignee_id: r.owner, created_at: iso(3) })),
+      documents: [],
       orders: [
         // Đơn đã chốt: đơn cũ đã hoàn tất; đơn gần đây còn nợ / thiếu hoá đơn, giấy tờ
         ...(r.orders ?? []).map(([d, amount, products]) => ({
@@ -99,6 +100,8 @@ function seed(): DB {
   });
   return { profiles, customers, seq, oseq };
 }
+
+const demoFiles = new Map<string, File>();
 
 export function createDemoApi(): Api {
   let db: DB;
@@ -188,7 +191,7 @@ export function createDemoApi(): Api {
       const c: Customer = {
         ...data, owner_id: owner, id, code: 'KH-' + String(db.seq++).padStart(6, '0'), created_by: m.id, created_at: now, updated_at: now,
         contacts: contact && contact.name.trim() ? [{ ...contact, id: uid(), customer_id: id, is_primary: true, created_at: now }] : [],
-        activities: [], notes: [], follow_ups: [], orders: [],
+        activities: [], notes: [], follow_ups: [], orders: [], documents: [],
       };
       db.customers.push(c); save();
       return clone(c);
@@ -226,6 +229,23 @@ export function createDemoApi(): Api {
       await delay();
       const { arr, i } = findChild(table, id);
       arr.splice(i, 1); save();
+    },
+
+    // Demo: tệp chỉ giữ trong bộ nhớ của tab này (tải lại trang là mất nội dung tệp)
+    async uploadDocument(customerId, file, meta) {
+      await delay();
+      const c = findCust(customerId);
+      const d = { ...meta, id: uid(), customer_id: customerId, name: file.name, mime: file.type, size: file.size, uploaded_by: meId(), created_at: new Date().toISOString() };
+      demoFiles.set(d.id, file);
+      c.documents.push(d); save();
+      return clone(d);
+    },
+    downloadDocument(doc) {
+      const f = demoFiles.get(doc.id);
+      if (!f) { alert('Chế độ demo: nội dung tệp không được lưu sau khi tải lại trang.'); return; }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(f); a.download = doc.name; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     },
 
     async findDuplicates(name) {

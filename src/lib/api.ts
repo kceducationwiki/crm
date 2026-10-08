@@ -1,5 +1,5 @@
 import type {
-  ChildRowMap, ChildTable, Customer, CustomerBase, Duplicate, NewChild, Profile,
+  ChildRowMap, ChildTable, Customer, CustomerBase, DocFile, DocMeta, Duplicate, NewChild, Profile,
 } from './types';
 
 export interface NewContact { name: string; role: string; email: string; phone: string; zalo: string }
@@ -43,6 +43,11 @@ export interface Api {
   addChild<T extends ChildTable>(table: T, row: NewChild<T>): Promise<ChildRowMap[T]>;
   updateChild<T extends ChildTable>(table: T, id: string, patch: Partial<ChildRowMap[T]>): Promise<void>;
   deleteChild(table: ChildTable, id: string): Promise<void>;
+
+  /** Tải 1 tệp hồ sơ / hợp đồng lên, lưu theo khách hàng */
+  uploadDocument(customerId: string, file: File, meta: DocMeta): Promise<DocFile>;
+  /** Tải tệp về máy */
+  downloadDocument(doc: DocFile): void;
 
   findDuplicates(name: string): Promise<Duplicate[]>;
 

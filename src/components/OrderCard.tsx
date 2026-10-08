@@ -12,6 +12,7 @@ export function OrderCard({ c, o, showCustomer, onOpenCustomer, ownerName }: { c
   const [pay, setPay] = useState('');
   const [noteEdit, setNoteEdit] = useState<string | null>(null);
   const [edit, setEdit] = useState<null | { code: string; amount: string; products: string[]; note: string; order_date: string }>(null);
+  const docs = (c.documents ?? []).filter((d) => d.order_id === o.id);
   const won = isWon(o);
   const debt = orderDebt(o);
   const paidPct = o.amount > 0 ? Math.min(100, (o.paid_amount / o.amount) * 100) : won ? 100 : 0;
@@ -77,6 +78,16 @@ export function OrderCard({ c, o, showCustomer, onOpenCustomer, ownerName }: { c
         {won ? 'Chốt ngày' : 'Tạo ngày'} {fmtDate(o.order_date)}{o.products.length ? ' · ' + o.products.join(', ') : ''}{ownerName ? ' · Phụ trách: ' + ownerName : ''}
       </div>
 
+      {docs.length > 0 && (
+        <div className="row gap8 wrap small" style={{ marginTop: 6 }}>
+          <span className="muted">Hồ sơ:</span>
+          {docs.map((d) => (
+            <a key={d.id} href="#" title={'Tải về ' + d.name} onClick={(e) => { e.preventDefault(); api.downloadDocument(d); }}>
+              📎 {d.contract_no ? `HĐ ${d.contract_no}` : d.name}
+            </a>
+          ))}
+        </div>
+      )}
       {/* Ghi chú đơn hàng: tình trạng, vướng mắc, lý do chưa thu được công nợ… */}
       {noteEdit === null ? (
         <div className={'order-note' + (o.note ? '' : ' empty')} role="button" tabIndex={0} title="Bấm để sửa ghi chú"

@@ -322,3 +322,10 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .qr { border: 1px solid var(--border); border-radius: 12px; background: #fff; display: block; }
 .backup-codes { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
 .backup-codes code { background: var(--soft); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; text-align: center; font-size: 13px; }
+
+/* Hồ sơ / hợp đồng */
+.dropzone { display: flex; align-items: center; gap: 10px; padding: 16px; border: 2px dashed var(--border); border-radius: 10px; cursor: pointer; font-size: 13px; }
+.dropzone:hover, .dropzone.on { border-color: var(--primary); background: var(--primary-soft); }
+.chip .x { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 14px; padding: 0 0 0 2px; }
+.doc { align-items: center; }
+.doc-name { font-weight: 600; word-break: break-all; }

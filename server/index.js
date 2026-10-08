@@ -78,6 +78,17 @@ function setSessionCookie(req, res, value, maxAgeSec) {
     `${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${secure ? '; Secure' : ''}`);
 }
 
+/** Đọc thân request dạng nhị phân (tải tệp lên), giới hạn dung lượng */
+async function readRaw(req, limit) {
+  const chunks = []; let size = 0;
+  for await (const c of req) {
+    size += c.length;
+    if (size > limit) throw new HttpError(413, `Tệp quá lớn (tối đa ${Math.round(limit / 1048576)} MB)`);
+    chunks.push(c);
+  }
+  return Buffer.concat(chunks);
+}
+
 async function readJson(req) {
   const chunks = []; let size = 0;
   for await (const c of req) {
@@ -200,7 +211,16 @@ const CHILDREN = {
            invoice_issued, docs_received, note, created_by, created_at`,
     order: 'order_date desc, created_at desc',
   },
+  // Hồ sơ / hợp đồng đính kèm khách hàng. Nội dung tệp (cột data) KHÔNG nằm trong cols → không tải kèm danh sách.
+  documents: {
+    fields: { name: 'text', kind: 'text', contract_no: 'text', note: 'text', order_id: 'uuidnull' },
+    cols: 'id, customer_id, order_id, name, kind, contract_no, note, mime, size, uploaded_by, created_at',
+    order: 'created_at desc',
+    uploadOnly: true, // chỉ tạo qua /api/customers/:id/documents
+  },
 };
+const MAX_FILE = 20 * 1024 * 1024; // 20 MB / tệp
+const DOC_KINDS = ['contract', 'acceptance', 'invoice', 'quote', 'liquidation', 'other'];
 
 /** Lọc & kiểm tra kiểu dữ liệu theo danh sách cột cho phép */
 function clean(input, fields) {
@@ -259,7 +279,7 @@ async function loadCustomers(where, params) {
   const cs = await q(`select ${CUSTOMER_COLS} from customers ${where} order by created_at desc`, params);
   if (!cs.length) return [];
   const ids = cs.map((c) => c.id);
-  const byId = new Map(cs.map((c) => [c.id, Object.assign(c, { contacts: [], activities: [], notes: [], follow_ups: [], orders: [] })]));
+  const byId = new Map(cs.map((c) => [c.id, Object.assign(c, { contacts: [], activities: [], notes: [], follow_ups: [], orders: [], documents: [] })]));
   for (const [table, def] of Object.entries(CHILDREN)) {
     const rows = await q(`select ${def.cols} from ${table} where customer_id = any($1::uuid[]) order by ${def.order}`, [ids]);
     for (const r of rows) byId.get(r.customer_id)?.[table].push(r);
@@ -283,10 +303,11 @@ function updateSql(table, data, id, extra = '') {
 //  Routes
 // ---------------------------------------------------------------------
 const routes = [];
-const route = (method, pattern, handler) => {
+const RAW_SENT = Symbol('raw'); // handler đã tự gửi phản hồi
+const route = (method, pattern, handler, opts = {}) => {
   const keys = [];
   const re = new RegExp('^' + pattern.replace(/:(\w+)/g, (_, k) => { keys.push(k); return '([^/]+)'; }) + '$');
-  routes.push({ method, re, keys, handler });
+  routes.push({ method, re, keys, handler, raw: !!opts.raw });
 };
 
 route('GET', '/api/health', async () => { await q('select 1 as ok'); return { ok: true }; });
@@ -499,10 +520,54 @@ route('GET', '/api/duplicates', async ({ me, url }) => {
       limit 5`, [name]);
 });
 
+// ----- Hồ sơ / hợp đồng đính kèm -----
+/** Đơn hàng (nếu có) phải thuộc đúng khách hàng này */
+async function checkOrderOfCustomer(orderId, customerId) {
+  if (!orderId) return null;
+  const [o] = await q('select id from orders where id = $1 and customer_id = $2', [needUuid(orderId), customerId]);
+  if (!o) throw bad('Đơn hàng không thuộc khách hàng này');
+  return o.id;
+}
+
+// Tải tệp lên: thân request là nội dung tệp; thông tin kèm theo nằm trên query string
+route('POST', '/api/customers/:id/documents', async ({ me, params, body, url }) => {
+  const c = await accessibleCustomer(me, params.id);
+  if (!Buffer.isBuffer(body) || body.length === 0) throw bad('Tệp rỗng');
+  const sp = url.searchParams;
+  const name = String(sp.get('name') || '').replace(/[\\/\u0000-\u001f]/g, '').trim().slice(0, 200);
+  if (!name) throw bad('Thiếu tên tệp');
+  const kind = DOC_KINDS.includes(sp.get('kind')) ? sp.get('kind') : 'other';
+  const orderId = await checkOrderOfCustomer(sp.get('order_id') || null, c.id);
+  const [row] = await q(
+    `insert into documents (customer_id, order_id, name, kind, contract_no, note, mime, size, data, uploaded_by)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning ${CHILDREN.documents.cols}`,
+    [c.id, orderId, name, kind, String(sp.get('contract_no') || '').trim().slice(0, 100), String(sp.get('note') || '').trim().slice(0, 1000),
+      String(sp.get('mime') || 'application/octet-stream').slice(0, 150), body.length, body, me.id]);
+  await q('update customers set updated_at = now() where id = $1 returning id', [c.id]);
+  return row;
+}, { raw: true });
+
+// Tải tệp về (trả thẳng nội dung tệp, luôn ở dạng "tải xuống" — không cho trình duyệt mở trực tiếp)
+route('GET', '/api/documents/:id/download', async ({ me, params, res }) => {
+  const [d] = await q('select customer_id, name, data from documents where id = $1', [needUuid(params.id)]);
+  if (!d) throw notFound('Không tìm thấy tệp');
+  await accessibleCustomer(me, d.customer_id);
+  const buf = Buffer.isBuffer(d.data) ? d.data : Buffer.from(String(d.data).replace(/^\\x/, ''), 'hex');
+  const ascii = d.name.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '');
+  res.writeHead(200, {
+    'Content-Type': 'application/octet-stream',
+    'Content-Length': buf.length,
+    'Content-Disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(d.name)}`,
+    'Cache-Control': 'private, no-store',
+  });
+  res.end(buf);
+  return RAW_SENT;
+});
+
 // ----- Bảng con: liên hệ, hoạt động, ghi chú, follow-up, đơn hàng -----
 route('POST', '/api/children/:table', async ({ me, params, body }) => {
   const def = CHILDREN[params.table];
-  if (!def) throw notFound();
+  if (!def || def.uploadOnly) throw notFound();
   await accessibleCustomer(me, body.customer_id);
   const data = clean(body, def.fields);
   data.customer_id = body.customer_id;
@@ -520,11 +585,17 @@ async function childAccess(me, table, id) {
   const [row] = await q(`select customer_id from ${table} where id = $1`, [needUuid(id)]);
   if (!row) throw notFound();
   await accessibleCustomer(me, row.customer_id);
+  return row.customer_id;
 }
 
 route('PATCH', '/api/children/:table/:id', async ({ me, params, body }) => {
-  await childAccess(me, params.table, params.id);
+  const customerId = await childAccess(me, params.table, params.id);
   const data = clean(body, CHILDREN[params.table].fields);
+  if (params.table === 'documents') {
+    if ('kind' in data && !DOC_KINDS.includes(data.kind)) throw bad('Loại hồ sơ không hợp lệ');
+    if ('name' in data) { data.name = data.name.replace(/[\\/]/g, '').trim(); if (!data.name) throw bad('Tên tệp không được để trống'); }
+    if (data.order_id) await checkOrderOfCustomer(data.order_id, customerId);
+  }
   if (Object.keys(data).length) { const [sql, vals] = updateSql(params.table, data, params.id); await q(sql, vals); }
   return { ok: true };
 });
@@ -590,14 +661,18 @@ const server = http.createServer(async (req, res) => {
       const m = url.pathname.match(r.re);
       if (!m) continue;
       const params = Object.fromEntries(r.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
-      const body = req.method === 'GET' ? {} : await readJson(req);
+      const body = req.method === 'GET' ? {} : r.raw ? await readRaw(req, MAX_FILE) : await readJson(req);
       const me = await currentUser(req);
       const result = await r.handler({ req, res, url, params, body, me });
+      if (result === RAW_SENT) return;
       return send(res, 200, result ?? null);
     }
     throw notFound('API không tồn tại');
   } catch (e) {
-    if (e instanceof HttpError) return send(res, e.status, { error: e.message, ...(e.extra || {}) });
+    if (e instanceof HttpError) {
+      if (e.status === 413) res.setHeader('Connection', 'close'); // client còn đang gửi dở → đóng kết nối sau khi trả lời
+      return send(res, e.status, { error: e.message, ...(e.extra || {}) });
+    }
     // Lỗi từ PostgreSQL
     if (e?.code === '23514' || e?.code === '22P02' || e?.code === '22007' || e?.code === '22008') return send(res, 400, { error: 'Dữ liệu không hợp lệ' });
     if (e?.code === '23505') return send(res, 409, { error: 'Dữ liệu bị trùng' });

@@ -36,6 +36,16 @@ kể cả khi gọi API trực tiếp. Khoá tài khoản có hiệu lực ngay 
 
 ---
 
+## Hồ sơ / hợp đồng theo khách hàng
+
+Mở khách hàng → tab **Hồ sơ** để tải lên hợp đồng, biên bản nghiệm thu, thanh lý, hoá đơn, báo giá… (tối đa 20 MB/tệp, chọn nhiều tệp một lần được).
+
+- Mỗi tệp ghi được **loại**, **số hợp đồng**, **đơn hàng liên quan** và ghi chú; sửa lại sau cũng được.
+- Khi khách có đơn mới: vào tab Hồ sơ, bấm **Tải về** bộ cũ, sửa số hợp đồng / thông tin đơn rồi tải bản mới lên.
+- Tệp gắn với đơn nào sẽ hiện ngay dưới đơn đó ở tab Đơn hàng.
+- Quyền xem giống khách hàng: nhân viên chỉ thấy hồ sơ của khách mình phụ trách, quản lý thấy tất cả.
+- Tệp được lưu **trong database** (bảng `documents`), nên backup database là backup luôn hồ sơ — và dung lượng backup sẽ tăng theo số tệp.
+
 ## Deploy lên Dokploy
 
 Cần 2 service trong cùng 1 project Dokploy: **PostgreSQL** (lưu dữ liệu) và **Application** (web).

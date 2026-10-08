@@ -110,9 +110,29 @@ export interface Customer extends CustomerBase {
   notes: Note[];
   follow_ups: FollowUp[];
   orders: Order[];
+  documents: DocFile[];
 }
 
-export type ChildTable = 'contacts' | 'activities' | 'notes' | 'follow_ups' | 'orders';
+export type DocKind = 'contract' | 'acceptance' | 'liquidation' | 'invoice' | 'quote' | 'other';
+
+/** Hồ sơ / hợp đồng đính kèm khách hàng (nội dung tệp nằm ở server, tải về khi cần) */
+export interface DocFile {
+  id: string;
+  customer_id: string;
+  order_id: string | null;   // gắn với đơn hàng nào (nếu có)
+  name: string;              // tên tệp
+  kind: DocKind;
+  contract_no: string;       // số hợp đồng
+  note: string;
+  mime: string;
+  size: number;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
+export interface DocMeta { kind: DocKind; contract_no: string; note: string; order_id: string | null }
+
+export type ChildTable = 'contacts' | 'activities' | 'notes' | 'follow_ups' | 'orders' | 'documents';
 
 export interface ChildRowMap {
   contacts: Contact;
@@ -120,6 +140,7 @@ export interface ChildRowMap {
   notes: Note;
   follow_ups: FollowUp;
   orders: Order;
+  documents: DocFile;
 }
 
 export type NewChild<T extends ChildTable> = Omit<ChildRowMap[T], 'id' | 'created_at'>;

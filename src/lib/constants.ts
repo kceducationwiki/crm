@@ -1,4 +1,4 @@
-import type { Lifecycle, Priority, Stage } from './types';
+import type { DocKind, Lifecycle, Priority, Stage } from './types';
 
 export const SCHOOL_TYPES = ['Công lập', 'Tư thục', 'Quốc tế', 'Trung tâm', 'Đại học', 'Khác'];
 export const SOURCES = ['Facebook', 'Website', 'Hội thảo', 'Giới thiệu', 'Email', 'Gọi điện', 'Khác'];
@@ -62,3 +62,15 @@ export const stageMeta = (k: Stage) => STAGES.find((s) => s.key === k) ?? STAGES
 export const lifecycleMeta = (k: Lifecycle) => LIFECYCLES.find((s) => s.key === k) ?? LIFECYCLES[0];
 export const priorityMeta = (k: Priority) => PRIORITIES.find((s) => s.key === k) ?? PRIORITIES[1];
 export const activityLabel = (k: string) => ACTIVITY_TYPES.find((a) => a.key === k)?.label ?? k;
+
+export const DOC_KINDS: Meta<DocKind>[] = [
+  { key: 'contract', label: 'Hợp đồng', tone: 'blue' },
+  { key: 'acceptance', label: 'Biên bản nghiệm thu / bàn giao', tone: 'green' },
+  { key: 'liquidation', label: 'Thanh lý hợp đồng', tone: 'purple' },
+  { key: 'invoice', label: 'Hoá đơn', tone: 'orange' },
+  { key: 'quote', label: 'Báo giá', tone: 'yellow' },
+  { key: 'other', label: 'Khác', tone: 'gray' },
+];
+export const docKindMeta = (k: DocKind) => DOC_KINDS.find((d) => d.key === k) ?? DOC_KINDS[DOC_KINDS.length - 1];
+/** Dung lượng tối đa 1 tệp (khớp với server) */
+export const MAX_FILE_MB = 20;

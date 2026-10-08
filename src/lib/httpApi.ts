@@ -1,5 +1,5 @@
 import type { Api } from './api';
-import type { Customer, Profile } from './types';
+import type { Customer, DocFile, Profile } from './types';
 
 /** Gọi backend Node (server/index.js) cùng domain, đăng nhập bằng cookie */
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -53,6 +53,25 @@ export function createHttpApi(): Api {
     addChild: (table, row) => call('POST', `/children/${table}`, row),
     async updateChild(table, id, patch) { await call('PATCH', `/children/${table}/${id}`, patch); },
     async deleteChild(table, id) { await call('DELETE', `/children/${table}/${id}`); },
+
+    async uploadDocument(customerId, file, meta) {
+      const qs = new URLSearchParams({ name: file.name, mime: file.type || 'application/octet-stream', kind: meta.kind, contract_no: meta.contract_no, note: meta.note });
+      if (meta.order_id) qs.set('order_id', meta.order_id);
+      const res = await fetch(`/api/customers/${customerId}/documents?${qs}`, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/octet-stream', 'X-KC-Request': '1' },
+        body: file,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || `Lỗi ${res.status}`);
+      return data as DocFile;
+    },
+    downloadDocument(doc) {
+      const a = document.createElement('a');
+      a.href = `/api/documents/${doc.id}/download`;
+      a.download = doc.name;
+      document.body.appendChild(a); a.click(); a.remove();
+    },
 
     findDuplicates: (name) => call('GET', `/duplicates?name=${encodeURIComponent(name)}`),
   };

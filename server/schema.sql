@@ -155,3 +155,23 @@ alter table users add column if not exists totp_enabled   boolean not null defau
 alter table users add column if not exists totp_secret    text;
 alter table users add column if not exists totp_last_step bigint  not null default 0;
 alter table users add column if not exists totp_backup    text[]  not null default '{}';
+
+-- =====================================================================
+--  v4: hồ sơ / hợp đồng đính kèm theo khách hàng (tệp lưu ngay trong database)
+-- =====================================================================
+create table if not exists documents (
+  id          uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references customers(id) on delete cascade,
+  order_id    uuid references orders(id) on delete set null,
+  name        text not null,
+  kind        text not null default 'other',
+  contract_no text not null default '',
+  note        text not null default '',
+  mime        text not null default 'application/octet-stream',
+  size        integer not null,
+  data        bytea not null,
+  uploaded_by uuid references users(id) on delete set null,
+  created_at  timestamptz not null default now()
+);
+create index if not exists documents_customer_idx on documents(customer_id);
+create index if not exists documents_order_idx on documents(order_id);

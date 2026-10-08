@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon';
 import { Badge, Button, Chips, Drawer, Empty, Field, Input, LifeBadge, PriorityBadge, Select, StageBadge, Tabs, Textarea, toast } from '../components/ui';
 import { CustomerForm } from './CustomerForm';
 import { OrderCard } from '../components/OrderCard';
+import { Documents } from '../components/Documents';
 import { ACTIVITY_TYPES, PRIORITIES, PRODUCTS, STAGES, activityLabel } from '../lib/constants';
 import { newOrder, setOrderStage, typeLabel } from '../lib/deals';
 import { customerDebt, customerStage, fmtDate, fmtDateTime, isOpen, isWon, money, openDeals, primaryContact, relDay, revenue, todayStr, wonOrders } from '../lib/format';
@@ -83,6 +84,7 @@ export function CustomerDetail({ id, onClose, initialTab }: { id: string; onClos
           { key: 'notes', label: 'Ghi chú', count: c.notes.length },
           { key: 'followups', label: 'Follow-up', count: openFu },
           { key: 'orders', label: 'Đơn hàng', count: c.orders.length },
+          { key: 'docs', label: 'Hồ sơ', count: c.documents.length },
         ]} />
 
         {tab === 'overview' && <Overview c={c} rev={rev} run={run} />}
@@ -90,6 +92,7 @@ export function CustomerDetail({ id, onClose, initialTab }: { id: string; onClos
         {tab === 'notes' && <Notes c={c} run={run} />}
         {tab === 'followups' && <FollowUps c={c} run={run} />}
         {tab === 'orders' && <Orders c={c} run={run} />}
+        {tab === 'docs' && <Documents c={c} />}
       </div>
 
       {editing && <CustomerForm customer={c} onClose={() => setEditing(false)} />}
