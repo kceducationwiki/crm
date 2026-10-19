@@ -6,7 +6,7 @@ import { CustomerForm } from './CustomerForm';
 import { OrderCard } from '../components/OrderCard';
 import { Documents } from '../components/Documents';
 import { ACTIVITY_TYPES, PRIORITIES, PRODUCTS, STAGES, activityLabel } from '../lib/constants';
-import { newOrder, setOrderStage, typeLabel } from '../lib/deals';
+import { createOrder, typeLabel } from '../lib/deals';
 import { customerDebt, customerStage, fmtDate, fmtDateTime, isOpen, isWon, money, openDeals, primaryContact, relDay, revenue, todayStr, wonOrders } from '../lib/format';
 import type { ChildTable, Customer, Priority, Stage } from '../lib/types';
 
@@ -285,9 +285,7 @@ function Orders({ c, run }: { c: Customer; run: Run }) {
     if (amount < 0) return toast.err('Giá trị đơn không hợp lệ');
     if (o.stage === 'won' && !amount) return toast.err('Đơn đã chốt cần có giá trị');
     run(async () => {
-      // Tạo ở giai đoạn trước rồi mới chuyển "Chốt đơn" để chạy đủ logic chốt (vòng đời, timeline)
-      const created = await api.addChild('orders', newOrder(c.id, me!.id, { amount, products: o.products, note: o.note.trim(), stage: o.stage === 'won' ? 'pending' : o.stage }));
-      if (o.stage === 'won') await setOrderStage(api, me!.id, c, created, 'won');
+      await createOrder(api, me!.id, c, { amount, products: o.products, note: o.note, stage: o.stage });
       setO({ amount: '', products: c.interests, stage: 'lead', note: '' });
     }, o.stage === 'won' ? 'Đã thêm đơn đã chốt' : 'Đã thêm đơn vào Pipeline');
   };

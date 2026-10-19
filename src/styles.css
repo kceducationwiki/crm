@@ -329,3 +329,11 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .chip .x { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 14px; padding: 0 0 0 2px; }
 .doc { align-items: center; }
 .doc-name { font-weight: 600; word-break: break-all; }
+
+/* Chọn khách khi thêm đơn từ Pipeline */
+.pick-list { max-height: 300px; overflow: auto; margin-top: 8px; }
+.pick-list .list-item { width: 100%; text-align: left; background: var(--card); color: inherit; font: inherit; cursor: pointer; }
+.pick-list .list-item:hover { border-color: var(--primary); background: var(--primary-soft); }
+.list-item.picked { border-color: var(--primary); background: var(--primary-soft); align-items: center; }
+.kcol-add { border: 0; background: none; color: var(--muted); font-size: 17px; line-height: 1; width: 22px; height: 22px; border-radius: 6px; cursor: pointer; }
+.kcol-add:hover { background: var(--primary-soft); color: var(--primary); }

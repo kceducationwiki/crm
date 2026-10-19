@@ -39,3 +39,16 @@ export async function setOrderStage(api: Api, userId: string, c: Customer, o: Or
       : `Đơn ${o.code}: ${stageMeta(o.stage).label} → ${stageMeta(stage).label}`,
   });
 }
+
+/**
+ * Thêm 1 đơn cho khách. Nếu đơn đã chốt ngay: tạo ở "Chờ quyết định" rồi chuyển sang "Chốt đơn"
+ * để chạy đủ logic chốt (ngày chốt, vòng đời khách, timeline).
+ */
+export async function createOrder(api: Api, userId: string, c: Customer,
+  o: { amount: number; products: string[]; note: string; stage: Stage }) {
+  const created = await api.addChild('orders', newOrder(c.id, userId, {
+    amount: o.amount, products: o.products, note: o.note.trim(), stage: o.stage === 'won' ? 'pending' : o.stage,
+  }));
+  if (o.stage === 'won') await setOrderStage(api, userId, c, created, 'won');
+  return created;
+}

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store';
 import { useNav } from '../lib/nav';
-import { Avatar, PageHeader, Select, toast } from '../components/ui';
-import { STAGES, stageMeta } from '../lib/constants';
+import { Avatar, Button, PageHeader, Select, toast } from '../components/ui';
+import { NewOrderModal } from '../components/NewOrderModal';
+import { OPEN_STAGES, STAGES, stageMeta } from '../lib/constants';
 import { setOrderStage } from '../lib/deals';
 import { isWon, moneyShort, orderDebt, orderDone } from '../lib/format';
 import type { Customer, Order, Stage } from '../lib/types';
@@ -14,6 +15,7 @@ export function PipelinePage() {
   const [owner, setOwner] = useState('');
   const [hideClosed, setHideClosed] = useState(false);
   const [over, setOver] = useState<Stage | null>(null);
+  const [adding, setAdding] = useState<Stage | null>(null);
 
   const allDeals = useMemo(() => customers
     .filter((c) => !owner || c.owner_id === owner)
@@ -45,7 +47,9 @@ export function PipelinePage() {
           <label className="row gap8 small"><input type="checkbox" checked={hideClosed} onChange={(e) => setHideClosed(e.target.checked)} /> Ẩn Chốt / Thất bại / Tạm dừng</label>
           {isAdmin && <Select style={{ width: 200 }} value={owner} onChange={(e) => setOwner(e.target.value)}
             options={[{ value: '', label: 'Tất cả nhân viên' }, ...profiles.map((p) => ({ value: p.id, label: p.full_name || p.email }))]} />}
+          <Button icon="plus" onClick={() => setAdding('lead')}>Thêm đơn</Button>
         </>} />
+      {adding && <NewOrderModal defaultStage={adding} onClose={() => setAdding(null)} />}
       <div className="kanban">
         {cols.map((s) => {
           const items = deals.filter((d) => d.o.stage === s.key);
@@ -55,7 +59,8 @@ export function PipelinePage() {
               onDragOver={(e) => { e.preventDefault(); setOver(s.key); }}
               onDragLeave={() => setOver((o) => (o === s.key ? null : o))}
               onDrop={(e) => { e.preventDefault(); setOver(null); move(e.dataTransfer.getData('text/plain'), s.key); }}>
-              <div className="kcol-head"><span className={`badge tone-${s.tone}`}><span className="dot" />{s.label}</span><span className="muted">{items.length}</span></div>
+              <div className="kcol-head"><span className={`badge tone-${s.tone}`}><span className="dot" />{s.label}</span><span className="row gap4"><span className="muted">{items.length}</span>
+                {OPEN_STAGES.includes(s.key) && <button type="button" className="kcol-add" title={`Thêm đơn vào "${s.label}"`} aria-label={`Thêm đơn vào ${s.label}`} onClick={() => setAdding(s.key)}>+</button>}</span></div>
               {sum > 0 && <div className="kcol-sum">{s.key === 'won' ? 'Đã chốt, chưa hoàn tất' : 'Dự kiến'}: {moneyShort(sum)}</div>}
               {items.map(({ o, c }) => <DealCard key={o.id} o={o} c={c} owner={isAdmin ? nameOf(c.owner_id) : ''} onOpen={() => openCustomer(c.id, 'orders')} />)}
               {s.key === 'won' && doneCount > 0 && (
