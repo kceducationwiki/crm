@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { Button, Field, Input, PageHeader, toast } from '../components/ui';
 import { TwoFactorCard } from '../components/TwoFactor';
+import { NotifyCard } from '../components/NotifyCard';
 
 export function SettingsPage() {
   const { me, api, refreshMe, reload, isAdmin } = useStore();
@@ -57,6 +58,7 @@ export function SettingsPage() {
           )}
         </div>
       </div>
+      <NotifyCard />
       <TwoFactorCard />
     </>
   );

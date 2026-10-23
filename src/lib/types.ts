@@ -150,3 +150,14 @@ export interface Duplicate {
   school_name: string;
   owner_name: string;
 }
+
+/** Nhắc việc qua email / Zalo */
+export interface NotifySettings { hour: number; milestones: number[]; repeat: number }
+export interface NotifyStatus {
+  email_ready: boolean;
+  zalo_ready: boolean;
+  bot_name: string;
+  settings: NotifySettings;
+  me: { email: string; notify_email: boolean; notify_zalo: boolean; notify_all: boolean; zalo_linked: boolean; zalo_code: string | null };
+}
+export type NotifyPrefs = Partial<Pick<NotifyStatus['me'], 'notify_email' | 'notify_zalo' | 'notify_all'>>;

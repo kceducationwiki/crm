@@ -175,3 +175,21 @@ create table if not exists documents (
 );
 create index if not exists documents_customer_idx on documents(customer_id);
 create index if not exists documents_order_idx on documents(order_id);
+
+-- =====================================================================
+--  v5: nhắc việc qua email / Zalo (follow-up đến hạn, công nợ / hoá đơn / giấy tờ sau ngày chốt)
+-- =====================================================================
+alter table users add column if not exists notify_email      boolean not null default true;
+alter table users add column if not exists notify_zalo       boolean not null default true;
+alter table users add column if not exists notify_all        boolean not null default true; -- quản lý: nhận nhắc của toàn bộ khách
+alter table users add column if not exists zalo_chat_id      text;
+alter table users add column if not exists zalo_link_code    text;
+alter table users add column if not exists zalo_link_expires timestamptz;
+-- Đánh dấu đã nhắc (mỗi ngày chạy 1 lần; mỗi mốc của mỗi đơn chỉ nhắc 1 lần)
+create table if not exists notify_sent (
+  key     text primary key,
+  sent_at timestamptz not null default now()
+);
+insert into app_settings (key, value)
+values ('notify', '{"hour":8,"milestones":[10,20,25,30],"repeat":7}')
+on conflict (key) do nothing;

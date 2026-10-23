@@ -1,5 +1,5 @@
 import type {
-  ChildRowMap, ChildTable, Customer, CustomerBase, DocFile, DocMeta, Duplicate, NewChild, Profile,
+  ChildRowMap, ChildTable, Customer, CustomerBase, DocFile, DocMeta, Duplicate, NewChild, NotifyPrefs, NotifySettings, NotifyStatus, Profile,
 } from './types';
 
 export interface NewContact { name: string; role: string; email: string; phone: string; zalo: string }
@@ -50,6 +50,18 @@ export interface Api {
   downloadDocument(doc: DocFile): void;
 
   findDuplicates(name: string): Promise<Duplicate[]>;
+
+  /** Nhắc việc qua email / Zalo (chỉ có khi chạy với server) */
+  notify?: {
+    status(): Promise<NotifyStatus>;
+    savePrefs(p: NotifyPrefs): Promise<void>;
+    saveSettings(s: { hour?: number; repeat?: number; milestones?: number[] | string }): Promise<NotifySettings>;
+    linkZalo(): Promise<{ code: string; bot_name: string }>;
+    unlinkZalo(): Promise<void>;
+    test(): Promise<{ email?: string; zalo?: string }>;
+    preview(): Promise<{ empty: boolean; text: string; subject?: string }>;
+    runNow(): Promise<{ skipped?: string; sent?: { user: string; email?: string; zalo?: string }[] }>;
+  };
 
   /** chỉ bản demo */
   resetDemo?(): void;

@@ -103,7 +103,7 @@ export function App() {
           )}
           <div className="topbar">
             <Button variant="ghost" icon="menu" className="menu-btn" aria-label="Menu" onClick={() => setMenuOpen((v) => !v)} />
-            <div className="small muted">
+            <div className="small muted topbar-date">
               Hôm nay · {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </div>
             <div className="right row gap8">

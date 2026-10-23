@@ -337,3 +337,9 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .list-item.picked { border-color: var(--primary); background: var(--primary-soft); align-items: center; }
 .kcol-add { border: 0; background: none; color: var(--muted); font-size: 17px; line-height: 1; width: 22px; height: 22px; border-radius: 6px; cursor: pointer; }
 .kcol-add:hover { background: var(--primary-soft); color: var(--primary); }
+
+/* Cài đặt → Thông báo */
+.notify-ch { display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; flex-wrap: wrap; }
+.zalo-code { font-size: 20px; font-weight: 700; letter-spacing: 2px; background: var(--primary-soft); color: var(--primary); border-radius: 8px; padding: 6px 14px; }
+.notify-preview { white-space: pre-wrap; font: 13px/1.6 inherit; font-family: inherit; margin: 0; max-height: 360px; overflow: auto; }
+@media (max-width: 600px) { .topbar-date { display: none; } }

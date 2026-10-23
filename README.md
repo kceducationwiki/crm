@@ -46,6 +46,39 @@ Mở khách hàng → tab **Hồ sơ** để tải lên hợp đồng, biên b�
 - Quyền xem giống khách hàng: nhân viên chỉ thấy hồ sơ của khách mình phụ trách, quản lý thấy tất cả.
 - Tệp được lưu **trong database** (bảng `documents`), nên backup database là backup luôn hồ sơ — và dung lượng backup sẽ tăng theo số tệp.
 
+## Thông báo nhắc việc (email / Zalo)
+
+Mỗi sáng (mặc định 8h, giờ Việt Nam) mỗi người nhận **1 tin tổng hợp**:
+
+- **Follow-up** đến hạn hôm nay hoặc đã trễ (chưa đánh dấu xong).
+- **Đơn đã chốt** chạm mốc **10 / 20 / 25 / 30 ngày** sau ngày chốt mà còn **nợ**, **chưa xuất hoá đơn** hoặc **chưa đủ giấy tờ**. Sau mốc cuối, nhắc lại mỗi 7 ngày tới khi xong. Mỗi mốc của mỗi đơn chỉ nhắc 1 lần; đơn đã thu đủ + có hoá đơn + đủ giấy tờ thì thôi nhắc.
+- Nhân viên nhận việc của khách mình phụ trách. Quản lý nhận của toàn bộ khách, kèm tên nhân viên (tắt được).
+
+Quản lý đổi giờ gửi, các mốc ngày và chu kỳ nhắc lại trong **Cài đặt → Thông báo nhắc việc**. Mỗi người tự bật / tắt email, kết nối Zalo, bấm **Gửi tin thử** và **Xem trước nhắc hôm nay** ở đó.
+
+### Bật email
+
+Thêm biến môi trường trên Dokploy (tab Environment) rồi Deploy lại. Ví dụ với Gmail / Google Workspace:
+
+```
+APP_URL=https://crm.kcedu.vn
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=crm@kcedu.vn
+SMTP_PASS=<mật khẩu ứng dụng 16 ký tự>
+SMTP_FROM=KC CRM <crm@kcedu.vn>
+```
+
+`SMTP_PASS` **không** phải mật khẩu đăng nhập Gmail. Bật xác minh 2 bước cho tài khoản Google đó, rồi vào myaccount.google.com → Bảo mật → **Mật khẩu ứng dụng** để tạo. Nên dùng 1 hộp thư riêng cho hệ thống (vd. crm@…). Mail công ty khác: hỏi bên cung cấp host / cổng (465 hoặc 587).
+
+### Bật Zalo
+
+1. Vào https://bot.zaloplatforms.com, đăng nhập Zalo, tạo bot (vd. "KC CRM nhắc việc") và copy **Bot Token**.
+2. Thêm `ZALO_BOT_TOKEN=<token>` (và `APP_URL=https://crm.kcedu.vn`) trên Dokploy rồi Deploy lại. Server tự đăng ký webhook `https://crm.kcedu.vn/api/zalo/webhook`.
+3. Mỗi người: **Cài đặt → Thông báo → Kết nối Zalo** → nhắn mã `KC-XXXXXX` cho bot trong 15 phút → bot trả lời "Đã kết nối".
+
+Chạy trên máy (không có https) thì server tự hỏi Zalo mỗi vài giây thay cho webhook — vẫn kết nối được bình thường.
+
 ## Deploy lên Dokploy
 
 Cần 2 service trong cùng 1 project Dokploy: **PostgreSQL** (lưu dữ liệu) và **Application** (web).
@@ -164,6 +197,9 @@ Muốn chắc hơn nữa (tuỳ chọn): đặt web sau **Cloudflare Access** ho
 | `SESSION_SECRET` | | Khoá ký phiên đăng nhập. Bỏ trống = tự sinh & lưu trong DB. Đổi giá trị = đăng xuất tất cả mọi người |
 | `SIGNUP_CODE` | nên đặt | Mã đăng ký nội bộ. Có đặt → form Đăng ký yêu cầu nhập mã này |
 | `DATABASE_SSL` | | `true` nếu dùng database bên ngoài yêu cầu SSL |
+| `APP_URL` | | Địa chỉ web, vd. `https://crm.kcedu.vn` — dùng cho link trong tin nhắc và webhook Zalo |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | | Gửi email nhắc việc (xem mục Thông báo nhắc việc). Cổng 465 dùng TLS, cổng 587 dùng STARTTLS (tự động) |
+| `ZALO_BOT_TOKEN` | | Token Zalo Bot để gửi nhắc qua Zalo |
 
 ## Cấu trúc code
 
@@ -171,6 +207,7 @@ Muốn chắc hơn nữa (tuỳ chọn): đặt web sau **Cloudflare Access** ho
 server/index.js          Backend: API, đăng nhập, kiểm tra phân quyền, phục vụ giao diện
 server/schema.sql        Cấu trúc bảng (tự chạy khi server khởi động)
 server/db.js             Kết nối PostgreSQL
+server/notify.js         Nhắc việc: gửi email (SMTP) và Zalo Bot, lịch gửi hằng ngày
 src/lib/httpApi.ts       Giao diện gọi API backend
 src/lib/demoApi.ts       Dữ liệu demo (khi không có backend)
 src/lib/constants.ts     Danh mục: giai đoạn, lifecycle, sản phẩm, tỉnh… (sửa ở đây)

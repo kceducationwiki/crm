@@ -74,5 +74,16 @@ export function createHttpApi(): Api {
     },
 
     findDuplicates: (name) => call('GET', `/duplicates?name=${encodeURIComponent(name)}`),
+
+    notify: {
+      status: () => call('GET', '/notify'),
+      async savePrefs(p) { await call('PATCH', '/notify/me', p); },
+      saveSettings: (s) => call('PATCH', '/notify/settings', s),
+      linkZalo: () => call('POST', '/notify/zalo-link'),
+      async unlinkZalo() { await call('POST', '/notify/zalo-unlink'); },
+      test: () => call('POST', '/notify/test'),
+      preview: () => call('GET', '/notify/preview'),
+      runNow: () => call('POST', '/notify/run'),
+    },
   };
 }

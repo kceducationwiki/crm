@@ -10,6 +10,7 @@ import path from 'node:path';
 import { readFile, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { q, initDb } from './db.js';
+import * as notify from './notify.js';
 
 const PORT = Number(process.env.PORT || 3000);
 const DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist');
@@ -606,6 +607,70 @@ route('DELETE', '/api/children/:table/:id', async ({ me, params }) => {
   return { ok: true };
 });
 
+// ----- Nhắc việc qua email / Zalo -----
+async function notifyMe(id) {
+  const [u] = await q(`select id, email, full_name, role, notify_email, notify_zalo, notify_all, zalo_chat_id,
+                              zalo_link_code, zalo_link_expires > now() as code_valid from users where id = $1`, [id]);
+  return u;
+}
+route('GET', '/api/notify', async ({ me }) => {
+  needActive(me);
+  const u = await notifyMe(me.id);
+  return {
+    email_ready: notify.emailReady(), zalo_ready: notify.zaloReady(), bot_name: notify.botName(),
+    settings: await notify.getSettings(),
+    me: { email: u.email, notify_email: u.notify_email, notify_zalo: u.notify_zalo, notify_all: u.notify_all,
+      zalo_linked: !!u.zalo_chat_id, zalo_code: u.code_valid ? u.zalo_link_code : null },
+  };
+});
+route('PATCH', '/api/notify/me', async ({ me, body }) => {
+  needActive(me);
+  const patch = {};
+  for (const k of ['notify_email', 'notify_zalo', 'notify_all']) if (k in body) patch[k] = !!body[k];
+  if (Object.keys(patch).length) { const [sql, vals] = updateSql('users', patch, me.id); await q(sql, vals); }
+  return { ok: true };
+});
+route('PATCH', '/api/notify/settings', async ({ me, body }) => { needAdmin(me); return notify.saveSettings(body); });
+route('POST', '/api/notify/zalo-link', async ({ me }) => {
+  needActive(me);
+  if (!notify.zaloReady()) throw bad('Server chưa cấu hình Zalo Bot (ZALO_BOT_TOKEN)');
+  return { code: await notify.newLinkCode(me.id), bot_name: notify.botName() };
+});
+route('POST', '/api/notify/zalo-unlink', async ({ me }) => {
+  needActive(me);
+  await q('update users set zalo_chat_id = null, zalo_link_code = null where id = $1 returning id', [me.id]);
+  return { ok: true };
+});
+route('POST', '/api/notify/test', async ({ me }) => {
+  needActive(me);
+  const u = await notifyMe(me.id);
+  const msg = {
+    subject: '[KC CRM] Thử thông báo',
+    text: `Chào ${u.full_name}, đây là tin thử từ KC CRM. Nếu bạn nhận được tin này thì thông báo nhắc việc đã hoạt động ✅`,
+    html: `<p>Chào ${u.full_name.replace(/[<>&]/g, '')},</p><p>Đây là tin thử từ <b>KC CRM</b>. Nếu bạn nhận được email này thì thông báo nhắc việc đã hoạt động ✅</p>`,
+  };
+  const r = await notify.deliver(u, msg);
+  if (!Object.keys(r).length) throw bad('Bạn chưa bật kênh nào (hoặc server chưa cấu hình email / Zalo)');
+  return r;
+});
+// Xem trước tin nhắc hôm nay của chính mình (không gửi, không đánh dấu)
+route('GET', '/api/notify/preview', async ({ me }) => {
+  needActive(me);
+  const today = notify.vnToday();
+  const { byUser } = await notify.buildDigests(today, await notify.getSettings(), false);
+  const d = byUser.get(me.id);
+  if (!d || (!d.followUps.length && !d.orders.length)) return { empty: true, text: 'Hôm nay không có việc nào cần nhắc 🎉' };
+  return { empty: false, ...notify.formatDigest(d, today) };
+});
+// Quản lý: chạy nhắc ngay (mốc đơn đã nhắc rồi thì không nhắc lại)
+route('POST', '/api/notify/run', async ({ me }) => { needAdmin(me); return notify.runDaily({ force: true }); });
+// Zalo đẩy tin nhắn người dùng gửi cho bot về đây (dùng để kết nối tài khoản)
+route('POST', '/api/zalo/webhook', async ({ req, body }) => {
+  if (!notify.checkWebhookSecret(req.headers['x-bot-api-secret-token'])) throw forbidden('Sai khoá webhook');
+  notify.handleZaloUpdate(body).catch((e) => console.error('Zalo webhook:', e.message));
+  return { ok: true };
+});
+
 // ---------------------------------------------------------------------
 //  Static files (giao diện)
 // ---------------------------------------------------------------------
@@ -654,7 +719,8 @@ const server = http.createServer(async (req, res) => {
       return await serveStatic(req, res, url.pathname);
     }
     // Chống CSRF: mọi request ghi dữ liệu phải có header do giao diện tự thêm
-    if (req.method !== 'GET' && req.headers['x-kc-request'] !== '1') throw forbidden('Yêu cầu không hợp lệ');
+    // (webhook của Zalo được kiểm tra bằng khoá bí mật riêng)
+    if (req.method !== 'GET' && req.headers['x-kc-request'] !== '1' && url.pathname !== '/api/zalo/webhook') throw forbidden('Yêu cầu không hợp lệ');
 
     for (const r of routes) {
       if (r.method !== req.method) continue;
@@ -688,3 +754,4 @@ if (!SECRET) {
   SECRET = row.value;
 }
 server.listen(PORT, () => console.log(`✅ KC CRM đang chạy tại http://localhost:${PORT}`));
+notify.startNotify(SECRET);
