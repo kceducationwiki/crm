@@ -36,6 +36,14 @@ kể cả khi gọi API trực tiếp. Khoá tài khoản có hiệu lực ngay 
 
 ---
 
+## Giao hàng thành công
+
+Đơn đã chốt có nút **Giao hàng thành công** (trong thẻ đơn ở tab Đơn hàng của khách, trang Đơn hàng & công nợ, và trên thẻ ở cột "Chốt đơn" của Pipeline). Bấm vào là ghi nhận **ngày hôm đó** là ngày giao; **công nợ tính từ ngày này** — sau 10 ngày chưa thu đủ tiền thì nhân viên phụ trách nhận nhắc nợ.
+
+- Giao từ hôm trước mới nhập: bấm ✏️ Sửa đơn → đổi "Ngày giao hàng". Bấm nhầm: bấm **Huỷ** cạnh dòng "Đã giao hàng".
+- Đơn chỉ **Hoàn tất** (tự rời Pipeline) khi đã giao + thu đủ + xuất hoá đơn + đủ giấy tờ.
+- Khi nâng cấp lên bản này, các đơn đã chốt từ trước được coi như đã giao vào ngày chốt (để nhắc nợ cũ không bị mất) — đơn nào chưa giao thật thì vào sửa / huỷ.
+
 ## Hồ sơ / hợp đồng theo khách hàng
 
 Mở khách hàng → tab **Hồ sơ** để tải lên hợp đồng, biên bản nghiệm thu, thanh lý, hoá đơn, báo giá… (tối đa 20 MB/tệp, chọn nhiều tệp một lần được).
@@ -51,7 +59,9 @@ Mở khách hàng → tab **Hồ sơ** để tải lên hợp đồng, biên b�
 Mỗi sáng (mặc định 8h, giờ Việt Nam) mỗi người nhận **1 tin tổng hợp**:
 
 - **Follow-up** đến hạn hôm nay hoặc đã trễ (chưa đánh dấu xong).
-- **Đơn đã chốt** chạm mốc **10 / 20 / 25 / 30 ngày** sau ngày chốt mà còn **nợ**, **chưa xuất hoá đơn** hoặc **chưa đủ giấy tờ**. Sau mốc cuối, nhắc lại mỗi 7 ngày tới khi xong. Mỗi mốc của mỗi đơn chỉ nhắc 1 lần; đơn đã thu đủ + có hoá đơn + đủ giấy tờ thì thôi nhắc.
+- **Công nợ**: đơn đã **giao hàng thành công** được **10 / 20 / 25 / 30 ngày** mà chưa thu đủ tiền. Đơn chưa bấm "Giao hàng thành công" thì chưa nhắc nợ.
+- **Hoá đơn / giấy tờ**: đơn đã **chốt** được 10 / 20 / 25 / 30 ngày mà chưa xuất hoá đơn hoặc chưa đủ giấy tờ.
+- Sau mốc cuối, nhắc lại mỗi 7 ngày tới khi xong. Mỗi mốc của mỗi đơn chỉ nhắc 1 lần; thu đủ / xuất hoá đơn / đủ giấy tờ thì thôi nhắc phần đó.
 - Nhân viên nhận việc của khách mình phụ trách. Quản lý nhận của toàn bộ khách, kèm tên nhân viên (tắt được).
 
 Quản lý đổi giờ gửi, các mốc ngày và chu kỳ nhắc lại trong **Cài đặt → Thông báo nhắc việc**. Mỗi người tự bật / tắt email, kết nối Zalo, bấm **Gửi tin thử** và **Xem trước nhắc hôm nay** ở đó.

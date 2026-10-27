@@ -44,12 +44,16 @@ export const revenue = (c: Customer) => wonOrders(c).reduce((s, o) => s + Number
 /** Công nợ của 1 đơn đã chốt */
 export const orderDebt = (o: Order) => (isWon(o) ? Math.max(0, Number(o.amount || 0) - Number(o.paid_amount || 0)) : 0);
 export const customerDebt = (c: Customer) => c.orders.reduce((s, o) => s + orderDebt(o), 0);
-/** Đơn hoàn tất = đã chốt + thu đủ tiền + đã xuất hoá đơn + đủ giấy tờ */
-export const orderDone = (o: Order) => isWon(o) && orderDebt(o) === 0 && o.invoice_issued && o.docs_received;
+/** Đơn hoàn tất = đã chốt + đã giao hàng + thu đủ tiền + đã xuất hoá đơn + đủ giấy tờ */
+export const orderDone = (o: Order) => isWon(o) && !!o.delivered_date && orderDebt(o) === 0 && o.invoice_issued && o.docs_received;
+/** Số ngày kể từ khi giao hàng (công nợ tính từ ngày này); null = chưa giao */
+export const daysSinceDelivery = (o: Order) => (o.delivered_date
+  ? Math.round((new Date(todayStr() + 'T00:00:00').getTime() - new Date(o.delivered_date + 'T00:00:00').getTime()) / 864e5) : null);
 /** Những việc còn thiếu của 1 đơn đã chốt */
 export const orderMissing = (o: Order): string[] => {
   if (!isWon(o)) return [];
   const m: string[] = [];
+  if (!o.delivered_date) m.push('Chưa giao hàng');
   if (orderDebt(o) > 0) m.push('Còn nợ ' + moneyShort(orderDebt(o)));
   if (!o.invoice_issued) m.push('Chưa xuất hoá đơn');
   if (!o.docs_received) m.push('Thiếu giấy tờ');

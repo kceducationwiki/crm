@@ -193,3 +193,16 @@ create table if not exists notify_sent (
 insert into app_settings (key, value)
 values ('notify', '{"hour":8,"milestones":[10,20,25,30],"repeat":7}')
 on conflict (key) do nothing;
+
+-- =====================================================================
+--  v6: ngày giao hàng thành công — công nợ tính từ ngày giao
+-- =====================================================================
+alter table orders add column if not exists delivered_date date;
+-- Chuyển dữ liệu 1 lần: đơn đã chốt từ trước coi như đã giao vào ngày chốt (để nhắc công nợ cũ không bị mất).
+-- Sửa lại ngày giao thật trong từng đơn nếu cần.
+do $$ begin
+  if not exists (select 1 from app_settings where key = 'migrated_delivered_v6') then
+    update orders set delivered_date = order_date where stage = 'won' and delivered_date is null;
+    insert into app_settings (key, value) values ('migrated_delivered_v6', 'done');
+  end if;
+end $$;

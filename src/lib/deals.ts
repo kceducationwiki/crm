@@ -7,7 +7,7 @@ export const typeLabel = (c: Customer) => (c.customer_type === 'individual' ? 'K
 
 export const newOrder = (customerId: string, userId: string, patch: Partial<NewChild<'orders'>> = {}): NewChild<'orders'> => ({
   customer_id: customerId, code: '', order_date: todayStr(), amount: 0, products: [], stage: 'lead',
-  paid_amount: 0, invoice_issued: false, docs_received: false, note: '', created_by: userId, ...patch,
+  paid_amount: 0, invoice_issued: false, docs_received: false, note: '', delivered_date: null, created_by: userId, ...patch,
 });
 
 /** Vòng đời khách hàng sau khi có thêm 1 đơn chốt */
@@ -51,4 +51,21 @@ export async function createOrder(api: Api, userId: string, c: Customer,
   }));
   if (o.stage === 'won') await setOrderStage(api, userId, c, created, 'won');
   return created;
+}
+
+/**
+ * Ghi nhận GIAO HÀNG THÀNH CÔNG (mặc định hôm nay). Công nợ của đơn tính từ ngày này:
+ * sau 10 / 20 / 25 / 30 ngày chưa thu đủ tiền, hệ thống nhắc nhân viên phụ trách.
+ * date = null → huỷ ghi nhận (đánh dấu nhầm).
+ */
+export async function setDelivered(api: Api, userId: string, c: Customer, o: Order, date: string | null) {
+  await api.updateChild('orders', o.id, { delivered_date: date });
+  const debt = Math.max(0, Number(o.amount || 0) - Number(o.paid_amount || 0));
+  const [y, m, d] = (date ?? '').split('-');
+  await api.addChild('activities', {
+    customer_id: c.id, type: date ? 'delivery' : 'other', created_by: userId,
+    content: !date ? `Huỷ ghi nhận giao hàng đơn ${o.code}`
+      : o.delivered_date ? `Sửa ngày giao hàng đơn ${o.code} thành ${d}/${m}/${y}`
+        : `Giao hàng thành công đơn ${o.code} ngày ${d}/${m}/${y}${debt > 0 ? ` — công nợ ${money(debt)} tính từ hôm nay` : ''}`,
+  });
 }

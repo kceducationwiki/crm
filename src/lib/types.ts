@@ -74,6 +74,8 @@ export interface Order {
   paid_amount: number;      // đã thanh toán
   invoice_issued: boolean;  // đã xuất hoá đơn
   docs_received: boolean;   // đã nhận đủ giấy tờ (HĐ, biên bản…)
+  /** ngày giao hàng thành công (yyyy-mm-dd) — công nợ tính từ ngày này; null = chưa giao */
+  delivered_date: string | null;
   note: string;
   created_by: string | null;
   created_at: string;

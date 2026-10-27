@@ -2,7 +2,8 @@
 //  Nhắc việc qua EMAIL và ZALO
 //  - Mỗi ngày (giờ cài đặt, giờ Việt Nam) gửi cho từng người 1 tin tổng hợp:
 //      • follow-up đến hạn hôm nay / đã trễ
-//      • đơn đã chốt chạm mốc 10 / 20 / 25 / 30 ngày (cài được) mà còn nợ, chưa xuất hoá đơn hoặc thiếu giấy tờ
+//      • công nợ: đơn đã GIAO HÀNG được 10 / 20 / 25 / 30 ngày (cài được) mà chưa thu đủ tiền
+//      • hoá đơn / giấy tờ: đơn đã CHỐT được 10 / 20 / 25 / 30 ngày mà chưa xuất hoá đơn / chưa đủ giấy tờ
 //        (sau mốc cuối: nhắc lại mỗi N ngày cho tới khi xong)
 //  - Nhân viên nhận nhắc của khách mình phụ trách; quản lý nhận của toàn bộ khách (tắt được).
 //  - Email: gửi qua SMTP (Gmail / Google Workspace / mail công ty) — biến môi trường SMTP_*
@@ -316,31 +317,51 @@ export async function buildDigests(today, settings, onlyNew = true) {
   }
 
   const orders = await q(
-    `select o.id, o.code, o.order_date::text as order_date, o.amount, o.paid_amount, o.invoice_issued, o.docs_received, o.note,
+    `select o.id, o.code, o.order_date::text as order_date, o.delivered_date::text as delivered_date,
+            o.amount, o.paid_amount, o.invoice_issued, o.docs_received, o.note,
             c.school_name, c.code as customer_code, c.owner_id
        from orders o join customers c on c.id = o.customer_id
       where o.stage = 'won' and o.order_date <= $1::date
         and (o.paid_amount < o.amount or not o.invoice_issued or not o.docs_received)`, [today]);
-  const keys = orders.map((o) => {
-    const days = daysBetween(o.order_date, today);
-    const m = reachedMilestone(days, settings);
-    return m ? `ord:${o.id}:${m}` : null;
+  // 2 "đồng hồ" riêng cho mỗi đơn:
+  //  - CÔNG NỢ: tính từ ngày GIAO HÀNG THÀNH CÔNG (chưa giao thì chưa nhắc nợ)   → khoá debt:<đơn>:<mốc>
+  //  - HOÁ ĐƠN / GIẤY TỜ: tính từ ngày CHỐT ĐƠN                                  → khoá ord:<đơn>:<mốc>
+  const plan = orders.map((o) => {
+    const debt = Math.max(0, Number(o.amount) - Number(o.paid_amount));
+    const out = { o, debt, debtKey: null, paperKey: null };
+    if (debt > 0 && o.delivered_date) {
+      const m = reachedMilestone(daysBetween(o.delivered_date, today), settings);
+      if (m) out.debtKey = `debt:${o.id}:${m}`;
+    }
+    if (!o.invoice_issued || !o.docs_received) {
+      const m = reachedMilestone(daysBetween(o.order_date, today), settings);
+      if (m) out.paperKey = `ord:${o.id}:${m}`;
+    }
+    return out;
   });
-  const sent = onlyNew && keys.some(Boolean)
-    ? new Set((await q('select key from notify_sent where key = any($1::text[])', [keys.filter(Boolean)])).map((r) => r.key))
+  const allKeys = plan.flatMap((x) => [x.debtKey, x.paperKey]).filter(Boolean);
+  const sent = onlyNew && allKeys.length
+    ? new Set((await q('select key from notify_sent where key = any($1::text[])', [allKeys])).map((r) => r.key))
     : new Set();
   const orderKeys = [];
-  orders.forEach((o, i) => {
-    const k = keys[i];
-    if (!k || sent.has(k)) return;
-    orderKeys.push(k);
-    const issues = [];
-    const debt = Number(o.amount) - Number(o.paid_amount);
-    if (debt > 0) issues.push(`còn nợ ${money(debt)}`);
-    if (!o.invoice_issued) issues.push('chưa xuất hoá đơn');
-    if (!o.docs_received) issues.push('chưa nhận đủ giấy tờ');
-    fanout([o.owner_id], 'orders', { ...o, days: daysBetween(o.order_date, today), debt, issues, owner: names.get(o.owner_id) || 'Chưa gán' });
-  });
+  for (const { o, debt, debtKey, paperKey } of plan) {
+    const parts = [];
+    let debtShown = 0;
+    if (debtKey && !sent.has(debtKey)) {
+      orderKeys.push(debtKey); debtShown = debt;
+      parts.push({ when: `giao hàng ${daysBetween(o.delivered_date, today)} ngày trước (${dmy(o.delivered_date)})`, issues: [`còn nợ ${money(debt)}`] });
+    }
+    if (paperKey && !sent.has(paperKey)) {
+      orderKeys.push(paperKey);
+      const issues = [];
+      if (!o.invoice_issued) issues.push('chưa xuất hoá đơn');
+      if (!o.docs_received) issues.push('chưa nhận đủ giấy tờ');
+      parts.push({ when: `chốt ${daysBetween(o.order_date, today)} ngày trước (${dmy(o.order_date)})`, issues });
+    }
+    if (!parts.length) continue;
+    if (!o.delivered_date) parts.push({ when: '', issues: ['chưa giao hàng'] });
+    fanout([o.owner_id], 'orders', { ...o, debt: debtShown, parts, owner: names.get(o.owner_id) || 'Chưa gán' });
+  }
   return { byUser, orderKeys };
 }
 
@@ -355,7 +376,8 @@ export function formatDigest(d, today) {
     [followUps.length && `${followUps.length} follow-up`, orders.length && `${orders.length} đơn cần thu nợ / hoá đơn / giấy tờ`].filter(Boolean).join(', ');
 
   const fuLine = (f) => `${f.late > 0 ? `[Trễ ${f.late} ngày]` : '[Hôm nay]'}${PRIO[f.priority] ? ` (${PRIO[f.priority]})` : ''} ${f.school_name} — ${f.content}${showOwner ? ` · NV: ${f.owner}` : ''}`;
-  const orLine = (o) => `${o.code} · ${o.school_name} — chốt ${o.days} ngày trước (${dmy(o.order_date)}), giá trị ${money(o.amount)}: ${o.issues.join(', ')}${showOwner ? ` · NV: ${o.owner}` : ''}${o.note ? `\n   Ghi chú: ${o.note.slice(0, 200)}` : ''}`;
+  const partText = (p) => (p.when ? `${p.when}: ` : '') + p.issues.join(', ');
+  const orLine = (o) => `${o.code} · ${o.school_name} (giá trị ${money(o.amount)}) — ${o.parts.map(partText).join('; ')}${showOwner ? ` · NV: ${o.owner}` : ''}${o.note ? `\n   Ghi chú: ${o.note.slice(0, 200)}` : ''}`;
   const cap = (arr) => arr.slice(0, MAX_ITEMS);
   const more = (arr) => (arr.length > MAX_ITEMS ? [`… và ${arr.length - MAX_ITEMS} mục khác — xem trên KC CRM`] : []);
 
@@ -378,7 +400,7 @@ export function formatDigest(d, today) {
   ${followUps.length ? `<h3 style="color:#00ABD6;margin:14px 0 6px">📅 Follow-up đến hạn (${followUps.length})</h3><ul style="padding-left:18px;margin:0">${li(followUps, (f) =>
     `${f.late > 0 ? red(`Trễ ${f.late} ngày`) : '<b>Hôm nay</b>'}${PRIO[f.priority] ? ` (${PRIO[f.priority]})` : ''} — <b>${esc(f.school_name)}</b>: ${esc(f.content)}${showOwner ? ` <span style="color:#6b7280">· NV: ${esc(f.owner)}</span>` : ''}`)}</ul>` : ''}
   ${orders.length ? `<h3 style="color:#E05600;margin:14px 0 6px">💰 Đơn cần thu nợ / xuất hoá đơn / giấy tờ (${orders.length})</h3><ul style="padding-left:18px;margin:0">${li(orders, (o) =>
-    `<b>${esc(o.code)} · ${esc(o.school_name)}</b> — chốt ${o.days} ngày trước (${dmy(o.order_date)}), giá trị ${money(o.amount)}: ${o.issues.map((x) => (x.startsWith('còn nợ') ? red(x) : esc(x))).join(', ')}${showOwner ? ` <span style="color:#6b7280">· NV: ${esc(o.owner)}</span>` : ''}${o.note ? `<br><span style="color:#6b7280">Ghi chú: ${esc(o.note.slice(0, 200))}</span>` : ''}`)}</ul>` : ''}
+    `<b>${esc(o.code)} · ${esc(o.school_name)}</b> (giá trị ${money(o.amount)}) — ${o.parts.map((p) => (p.when ? `${esc(p.when)}: ` : '') + p.issues.map((x) => (x.startsWith('còn nợ') ? red(x) : esc(x))).join(', ')).join('; ')}${showOwner ? ` <span style="color:#6b7280">· NV: ${esc(o.owner)}</span>` : ''}${o.note ? `<br><span style="color:#6b7280">Ghi chú: ${esc(o.note.slice(0, 200))}</span>` : ''}`)}</ul>` : ''}
   ${APP_URL ? `<p style="margin-top:16px"><a href="${esc(APP_URL)}/#/${orders.length ? 'orders' : 'followups'}" style="background:#E05600;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none">Mở KC CRM</a></p>` : ''}
   <p style="color:#9ca3af;font-size:12px;margin-top:16px">Tắt / bật thông báo trong KC CRM → Cài đặt → Thông báo.</p>
   </div></div>`;

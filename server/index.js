@@ -205,11 +205,11 @@ const CHILDREN = {
   orders: {
     fields: {
       code: 'text', order_date: 'date', amount: 'num', products: 'textarr', stage: 'text',
-      paid_amount: 'num', invoice_issued: 'bool', docs_received: 'bool', note: 'text',
+      paid_amount: 'num', invoice_issued: 'bool', docs_received: 'bool', note: 'text', delivered_date: 'datenull',
     },
     author: 'created_by',
     cols: `id, customer_id, code, order_date::text as order_date, amount, products, stage, paid_amount,
-           invoice_issued, docs_received, note, created_by, created_at`,
+           invoice_issued, docs_received, note, delivered_date::text as delivered_date, created_by, created_at`,
     order: 'order_date desc, created_at desc',
   },
   // Hồ sơ / hợp đồng đính kèm khách hàng. Nội dung tệp (cột data) KHÔNG nằm trong cols → không tải kèm danh sách.
@@ -237,6 +237,7 @@ function clean(input, fields) {
       case 'uuidnull': v = v || null; if (v !== null && !isUuid(v)) throw bad(`Trường ${k} không hợp lệ`); break;
       case 'textarr': if (!Array.isArray(v)) throw bad(`Trường ${k} không hợp lệ`); v = v.map(String).slice(0, 50); break;
       case 'date': if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw bad(`Ngày không hợp lệ`); break;
+      case 'datenull': v = v || null; if (v !== null && (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v))) throw bad(`Ngày không hợp lệ`); break;
     }
     out[k] = v;
   }

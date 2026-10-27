@@ -7,9 +7,9 @@ import { Button, Empty, PageHeader, Select } from '../components/ui';
 import { stageMeta } from '../lib/constants';
 import { downloadCsv, fmtDate, isOpen, isWon, moneyShort, norm, orderDebt, orderDone, todayStr } from '../lib/format';
 
-type View = 'debt' | 'won' | 'invoice' | 'docs' | 'done' | 'open' | 'all';
+type View = 'debt' | 'undelivered' | 'won' | 'invoice' | 'docs' | 'done' | 'open' | 'all';
 const VIEWS: [View, string][] = [
-  ['debt', 'Còn công nợ'], ['invoice', 'Chưa xuất hoá đơn'], ['docs', 'Thiếu giấy tờ'],
+  ['debt', 'Còn công nợ'], ['undelivered', 'Chưa giao hàng'], ['invoice', 'Chưa xuất hoá đơn'], ['docs', 'Thiếu giấy tờ'],
   ['won', 'Tất cả đơn đã chốt'], ['done', 'Hoàn tất'], ['open', 'Đang theo đuổi'], ['all', 'Tất cả'],
 ];
 
@@ -44,6 +44,7 @@ export function OrdersPage() {
       if (nq && !norm(`${o.code} ${c.school_name} ${c.code} ${o.products.join(' ')} ${o.note}`).includes(nq)) return false;
       switch (view) {
         case 'debt': return orderDebt(o) > 0;
+        case 'undelivered': return isWon(o) && !o.delivered_date;
         case 'invoice': return isWon(o) && !o.invoice_issued;
         case 'docs': return isWon(o) && !o.docs_received;
         case 'won': return isWon(o);
@@ -55,12 +56,12 @@ export function OrdersPage() {
   }, [all, view, q]);
 
   const count = (v: View) => all.filter(({ o }) =>
-    v === 'debt' ? orderDebt(o) > 0 : v === 'invoice' ? isWon(o) && !o.invoice_issued : v === 'docs' ? isWon(o) && !o.docs_received
+    v === 'debt' ? orderDebt(o) > 0 : v === 'undelivered' ? isWon(o) && !o.delivered_date : v === 'invoice' ? isWon(o) && !o.invoice_issued : v === 'docs' ? isWon(o) && !o.docs_received
       : v === 'won' ? isWon(o) : v === 'done' ? orderDone(o) : v === 'open' ? isOpen(o) : true).length;
 
   const exportCsv = () => downloadCsv(`don-hang-${todayStr()}.csv`, [
-    ['Mã đơn', 'Khách hàng', 'Mã KH', 'Giai đoạn', 'Ngày', 'Sản phẩm', 'Giá trị', 'Đã thu', 'Công nợ', 'Đã xuất hoá đơn', 'Đủ giấy tờ', 'Hoàn tất', 'Phụ trách', 'Ghi chú'],
-    ...list.map(({ o, c }) => [o.code, c.school_name, c.code, stageMeta(o.stage).label, fmtDate(o.order_date), o.products.join(', '), o.amount,
+    ['Mã đơn', 'Khách hàng', 'Mã KH', 'Giai đoạn', 'Ngày', 'Ngày giao hàng', 'Sản phẩm', 'Giá trị', 'Đã thu', 'Công nợ', 'Đã xuất hoá đơn', 'Đủ giấy tờ', 'Hoàn tất', 'Phụ trách', 'Ghi chú'],
+    ...list.map(({ o, c }) => [o.code, c.school_name, c.code, stageMeta(o.stage).label, fmtDate(o.order_date), o.delivered_date ? fmtDate(o.delivered_date) : '', o.products.join(', '), o.amount,
       isWon(o) ? o.paid_amount : '', isWon(o) ? orderDebt(o) : '', isWon(o) ? (o.invoice_issued ? 'Có' : 'Chưa') : '', isWon(o) ? (o.docs_received ? 'Có' : 'Chưa') : '',
       isWon(o) ? (orderDone(o) ? 'Có' : 'Chưa') : '', nameOf(c.owner_id), o.note]),
   ]);
@@ -78,7 +79,7 @@ export function OrdersPage() {
         <div className="card stat"><div className="stat-top">Doanh thu đã chốt<span className="stat-ico"><Icon name="money" size={15} /></span></div><div className="stat-val num">{moneyShort(stats.revenue)}</div><div className="stat-sub">{stats.wonCount} đơn</div></div>
         <div className="card stat"><div className="stat-top">Đã thu<span className="stat-ico"><Icon name="check" size={15} /></span></div><div className="stat-val num">{moneyShort(stats.paid)}</div><div className="stat-sub">{stats.revenue ? Math.round((stats.paid / stats.revenue) * 100) : 0}% doanh thu</div></div>
         <div className={'card stat' + (stats.debt > 0 ? ' stat-danger' : '')}><div className="stat-top">Công nợ phải thu<span className="stat-ico"><Icon name="alert" size={15} /></span></div><div className="stat-val num">{moneyShort(stats.debt)}</div><div className="stat-sub">{stats.debtCount} đơn còn nợ</div></div>
-        <div className="card stat"><div className="stat-top">Đơn chưa hoàn tất<span className="stat-ico"><Icon name="receipt" size={15} /></span></div><div className="stat-val num">{stats.pending}</div><div className="stat-sub">thiếu tiền / hoá đơn / giấy tờ</div></div>
+        <div className="card stat"><div className="stat-top">Đơn chưa hoàn tất<span className="stat-ico"><Icon name="receipt" size={15} /></span></div><div className="stat-val num">{stats.pending}</div><div className="stat-sub">chưa giao / thiếu tiền / hoá đơn / giấy tờ</div></div>
       </div>
 
       <div className="row gap8 wrap" style={{ marginBottom: 12 }}>

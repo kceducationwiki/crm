@@ -4,8 +4,8 @@ import { useNav } from '../lib/nav';
 import { Avatar, Button, PageHeader, Select, toast } from '../components/ui';
 import { NewOrderModal } from '../components/NewOrderModal';
 import { OPEN_STAGES, STAGES, stageMeta } from '../lib/constants';
-import { setOrderStage } from '../lib/deals';
-import { isWon, moneyShort, orderDebt, orderDone } from '../lib/format';
+import { setDelivered, setOrderStage } from '../lib/deals';
+import { isWon, moneyShort, orderDebt, orderDone, todayStr } from '../lib/format';
 import type { Customer, Order, Stage } from '../lib/types';
 
 /** Pipeline theo ĐƠN HÀNG: mỗi thẻ là 1 đơn (cơ hội). Kéo sang "Chốt đơn" = đơn hoàn thành bán hàng. */
@@ -40,6 +40,11 @@ export function PipelinePage() {
     reload();
   };
 
+  const deliver = async (o: Order, c: Customer) => {
+    try { await setDelivered(api, me!.id, c, o, todayStr()); toast.ok(`🚚 Đã ghi nhận giao hàng ${o.code} — công nợ tính từ hôm nay`); } catch (e) { toast.err(e); }
+    reload();
+  };
+
   return (
     <>
       <PageHeader title="Pipeline" subtitle='Chỉ hiện đơn chưa hoàn tất. Kéo sang "Chốt đơn" thì đơn tự tính vào doanh thu; khi thu đủ tiền + xuất hoá đơn + đủ giấy tờ, đơn tự rời khỏi Pipeline.'
@@ -62,7 +67,7 @@ export function PipelinePage() {
               <div className="kcol-head"><span className={`badge tone-${s.tone}`}><span className="dot" />{s.label}</span><span className="row gap4"><span className="muted">{items.length}</span>
                 {OPEN_STAGES.includes(s.key) && <button type="button" className="kcol-add" title={`Thêm đơn vào "${s.label}"`} aria-label={`Thêm đơn vào ${s.label}`} onClick={() => setAdding(s.key)}>+</button>}</span></div>
               {sum > 0 && <div className="kcol-sum">{s.key === 'won' ? 'Đã chốt, chưa hoàn tất' : 'Dự kiến'}: {moneyShort(sum)}</div>}
-              {items.map(({ o, c }) => <DealCard key={o.id} o={o} c={c} owner={isAdmin ? nameOf(c.owner_id) : ''} onOpen={() => openCustomer(c.id, 'orders')} />)}
+              {items.map(({ o, c }) => <DealCard key={o.id} o={o} c={c} owner={isAdmin ? nameOf(c.owner_id) : ''} onOpen={() => openCustomer(c.id, 'orders')} onDeliver={() => deliver(o, c)} />)}
               {s.key === 'won' && doneCount > 0 && (
                 <a href="#/orders" className="small" style={{ padding: '6px 4px', display: 'block' }}>✓ {doneCount} đơn đã hoàn tất — xem ở Đơn hàng & công nợ →</a>
               )}
@@ -74,7 +79,7 @@ export function PipelinePage() {
   );
 }
 
-function DealCard({ o, c, owner, onOpen }: { o: Order; c: Customer; owner: string; onOpen: () => void }) {
+function DealCard({ o, c, owner, onOpen, onDeliver }: { o: Order; c: Customer; owner: string; onOpen: () => void; onDeliver: () => void }) {
   const debt = orderDebt(o);
   return (
     <div className="kcard" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', o.id)} onClick={onOpen}>
@@ -85,11 +90,17 @@ function DealCard({ o, c, owner, onOpen }: { o: Order; c: Customer; owner: strin
         {owner && <span className="right row gap4 small muted"><Avatar name={owner} size={18} />{owner.split(' ').slice(-1)[0]}</span>}
       </div>
       {isWon(o) && (
-        <div style={{ marginTop: 6 }}>
-          {orderDone(o) ? <span className="badge tone-green">Hoàn tất</span>
-            : debt > 0 ? <span className="badge tone-red">Còn nợ {moneyShort(debt)}</span>
-              : <span className="badge tone-orange">{!o.invoice_issued ? 'Chưa xuất HĐ' : 'Thiếu giấy tờ'}</span>}
+        <div className="row gap4 wrap" style={{ marginTop: 6 }}>
+          {orderDone(o) ? <span className="badge tone-green">Hoàn tất</span> : <>
+            {!o.delivered_date && <span className="badge tone-orange">Chưa giao hàng</span>}
+            {debt > 0 ? <span className="badge tone-red">Còn nợ {moneyShort(debt)}</span>
+              : o.delivered_date && <span className="badge tone-orange">{!o.invoice_issued ? 'Chưa xuất HĐ' : 'Thiếu giấy tờ'}</span>}
+          </>}
         </div>
+      )}
+      {isWon(o) && !o.delivered_date && (
+        <button type="button" className="kcard-deliver" title="Ghi nhận giao hàng hôm nay — công nợ tính từ hôm nay"
+          onClick={(e) => { e.stopPropagation(); onDeliver(); }}>✓ Giao hàng thành công</button>
       )}
     </div>
   );

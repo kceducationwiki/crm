@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { Badge, Button, Chips, Field, Input, Select, Textarea, toast } from './ui';
 import { PRODUCTS, STAGES } from '../lib/constants';
-import { setOrderStage } from '../lib/deals';
-import { fmtDate, isWon, money, orderDebt, orderDone, orderMissing } from '../lib/format';
+import { setDelivered, setOrderStage } from '../lib/deals';
+import { daysSinceDelivery, fmtDate, isWon, money, orderDebt, orderDone, orderMissing, todayStr } from '../lib/format';
 import type { Customer, Order, Stage } from '../lib/types';
 
 /** Thẻ 1 đơn hàng: giai đoạn, thanh toán / công nợ, hoá đơn, giấy tờ */
@@ -11,10 +11,11 @@ export function OrderCard({ c, o, showCustomer, onOpenCustomer, ownerName }: { c
   const { api, me, reload } = useStore();
   const [pay, setPay] = useState('');
   const [noteEdit, setNoteEdit] = useState<string | null>(null);
-  const [edit, setEdit] = useState<null | { code: string; amount: string; products: string[]; note: string; order_date: string }>(null);
+  const [edit, setEdit] = useState<null | { code: string; amount: string; products: string[]; note: string; order_date: string; delivered_date: string }>(null);
   const docs = (c.documents ?? []).filter((d) => d.order_id === o.id);
   const won = isWon(o);
   const debt = orderDebt(o);
+  const dDays = daysSinceDelivery(o);
   const paidPct = o.amount > 0 ? Math.min(100, (o.paid_amount / o.amount) * 100) : won ? 100 : 0;
 
   const run = async (fn: () => Promise<unknown>, msg?: string) => {
@@ -51,6 +52,7 @@ export function OrderCard({ c, o, showCustomer, onOpenCustomer, ownerName }: { c
     if (amount < o.paid_amount) return toast.err('Giá trị đơn không thể nhỏ hơn số đã thanh toán');
     run(async () => {
       await api.updateChild('orders', o.id, { code: edit.code.trim() || o.code, amount, products: edit.products, order_date: edit.order_date });
+      if (won && (edit.delivered_date || null) !== o.delivered_date) await setDelivered(api, me!.id, c, o, edit.delivered_date || null);
       setEdit(null);
     }, 'Đã lưu đơn hàng');
   };
@@ -69,13 +71,13 @@ export function OrderCard({ c, o, showCustomer, onOpenCustomer, ownerName }: { c
             onChange={(e) => run(() => setOrderStage(api, me!.id, c, o, e.target.value as Stage), e.target.value === 'won' ? 'Đã chốt đơn 🎉' : 'Đã chuyển giai đoạn')}
             options={STAGES.map((s) => ({ value: s.key, label: s.label }))} />
           <Button variant="ghost" size="sm" icon="edit" aria-label="Sửa đơn" title="Sửa đơn"
-            onClick={() => setEdit(edit ? null : { code: o.code, amount: String(o.amount || ''), products: o.products, note: o.note, order_date: o.order_date })} />
+            onClick={() => setEdit(edit ? null : { code: o.code, amount: String(o.amount || ''), products: o.products, note: o.note, order_date: o.order_date, delivered_date: o.delivered_date ?? '' })} />
           <Button variant="ghost" size="sm" icon="trash" aria-label="Xoá đơn" title="Xoá đơn"
             onClick={() => confirm(`Xoá đơn ${o.code}?`) && run(() => api.deleteChild('orders', o.id), 'Đã xoá đơn')} />
         </div>
       </div>
       <div className="small muted" style={{ marginTop: 4 }}>
-        {won ? 'Chốt ngày' : 'Tạo ngày'} {fmtDate(o.order_date)}{o.products.length ? ' · ' + o.products.join(', ') : ''}{ownerName ? ' · Phụ trách: ' + ownerName : ''}
+        {won ? 'Chốt ngày' : 'Tạo ngày'} {fmtDate(o.order_date)}{o.delivered_date ? ` · Giao hàng ${fmtDate(o.delivered_date)}` : ''}{o.products.length ? ' · ' + o.products.join(', ') : ''}{ownerName ? ' · Phụ trách: ' + ownerName : ''}
       </div>
 
       {docs.length > 0 && (
@@ -107,6 +109,7 @@ export function OrderCard({ c, o, showCustomer, onOpenCustomer, ownerName }: { c
         <div className="form-grid" style={{ marginTop: 12 }}>
           <Field label="Mã đơn"><Input value={edit.code} onChange={(e) => setEdit({ ...edit, code: e.target.value })} /></Field>
           <Field label={won ? 'Ngày chốt' : 'Ngày tạo'}><Input type="date" value={edit.order_date} onChange={(e) => setEdit({ ...edit, order_date: e.target.value })} /></Field>
+          {won && <Field label="Ngày giao hàng (để trống = chưa giao)"><Input type="date" value={edit.delivered_date} max={todayStr()} onChange={(e) => setEdit({ ...edit, delivered_date: e.target.value })} /></Field>}
           <Field label="Giá trị đơn (₫)"><Input type="number" min={0} step={1000000} value={edit.amount} onChange={(e) => setEdit({ ...edit, amount: e.target.value })} /></Field>
           <Field label="Sản phẩm" span2><Chips options={PRODUCTS} value={edit.products} onChange={(v) => setEdit({ ...edit, products: v })} /></Field>
           <div className="row gap8"><Button size="sm" onClick={saveEdit}>Lưu</Button><Button size="sm" variant="ghost" onClick={() => setEdit(null)}>Huỷ</Button></div>
@@ -115,6 +118,20 @@ export function OrderCard({ c, o, showCustomer, onOpenCustomer, ownerName }: { c
 
       {won && (
         <>
+          {/* Giao hàng: công nợ tính từ ngày giao thành công */}
+          {o.delivered_date ? (
+            <div className="deliv deliv-on">
+              <span>🚚 Đã giao hàng <b>{fmtDate(o.delivered_date)}</b>
+                {debt > 0 && dDays !== null && <> · nợ <b style={{ color: dDays >= 10 ? 'var(--danger)' : undefined }}>{dDays} ngày</b> kể từ khi giao</>}</span>
+              <button className="chip" style={{ fontSize: 11 }} title="Huỷ nếu bấm nhầm"
+                onClick={() => confirm(`Huỷ ghi nhận giao hàng đơn ${o.code}?`) && run(() => setDelivered(api, me!.id, c, o, null), 'Đã huỷ ghi nhận giao hàng')}>Huỷ</button>
+            </div>
+          ) : (
+            <div className="deliv">
+              <span>Chưa giao hàng — công nợ sẽ tính từ ngày giao.</span>
+              <Button size="sm" icon="check" onClick={() => run(() => setDelivered(api, me!.id, c, o, todayStr()), `Đã ghi nhận giao hàng ${o.code} hôm nay`)}>Giao hàng thành công</Button>
+            </div>
+          )}
           <div className={'pay-bar' + (debt > 0 ? ' debt' : '')}><div style={{ width: paidPct + '%' }} /></div>
           <div className="row gap8 wrap small">
             <span>Đã thu <b className="num">{money(o.paid_amount)}</b></span>

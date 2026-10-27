@@ -343,3 +343,9 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .zalo-code { font-size: 20px; font-weight: 700; letter-spacing: 2px; background: var(--primary-soft); color: var(--primary); border-radius: 8px; padding: 6px 14px; }
 .notify-preview { white-space: pre-wrap; font: 13px/1.6 inherit; font-family: inherit; margin: 0; max-height: 360px; overflow: auto; }
 @media (max-width: 600px) { .topbar-date { display: none; } }
+
+/* Giao hàng thành công */
+.deliv { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between; margin: 10px 0 8px; padding: 8px 10px; border-radius: 9px; border: 1px dashed var(--accent, #E05600); background: rgba(224, 86, 0, .06); font-size: 13px; }
+.deliv-on { border: 1px solid var(--border); border-style: solid; background: var(--soft); }
+.kcard-deliver { margin-top: 8px; width: 100%; border: 1px dashed var(--primary); background: var(--primary-soft); color: var(--primary); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.kcard-deliver:hover { background: var(--primary); color: #fff; }
