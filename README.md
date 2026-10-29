@@ -36,13 +36,18 @@ kể cả khi gọi API trực tiếp. Khoá tài khoản có hiệu lực ngay 
 
 ---
 
-## Giao hàng thành công
+## Giao hàng (tối đa 2 lần)
 
-Đơn đã chốt có nút **Giao hàng thành công** (trong thẻ đơn ở tab Đơn hàng của khách, trang Đơn hàng & công nợ, và trên thẻ ở cột "Chốt đơn" của Pipeline). Bấm vào là ghi nhận **ngày hôm đó** là ngày giao; **công nợ tính từ ngày này** — sau 10 ngày chưa thu đủ tiền thì nhân viên phụ trách nhận nhắc nợ.
+Đơn đã chốt có các nút giao hàng (trong thẻ đơn ở tab Đơn hàng của khách, trang Đơn hàng & công nợ, và trên thẻ ở cột "Chốt đơn" của Pipeline):
 
-- Giao từ hôm trước mới nhập: bấm ✏️ Sửa đơn → đổi "Ngày giao hàng". Bấm nhầm: bấm **Huỷ** cạnh dòng "Đã giao hàng".
-- Đơn chỉ **Hoàn tất** (tự rời Pipeline) khi đã giao + thu đủ + xuất hoá đơn + đủ giấy tờ.
-- Khi nâng cấp lên bản này, các đơn đã chốt từ trước được coi như đã giao vào ngày chốt (để nhắc nợ cũ không bị mất) — đơn nào chưa giao thật thì vào sửa / huỷ.
+- **Giao hết 1 lần** — giao đủ hàng trong 1 đợt → ghi nhận hôm nay là ngày giao xong.
+- **Giao lần 1 (còn thiếu)** — giao một phần → đơn chuyển sang "Chờ giao lần 2", **chưa tính công nợ**. Khi giao đợt còn lại bấm **Giao lần 2 (đủ hàng)**.
+
+**Công nợ tính từ ngày giao xong** (giao hết 1 lần, hoặc giao lần 2): sau 10 ngày chưa thu đủ tiền thì nhân viên phụ trách nhận nhắc nợ.
+
+- Nhập muộn: bấm ✏️ Sửa đơn → sửa "Ngày giao lần 1" / "Ngày giao lần 2 (hoặc giao hết)". Bấm nhầm: bấm **Huỷ** (huỷ bước giao gần nhất).
+- Đơn chỉ **Hoàn tất** (tự rời Pipeline) khi đã giao xong + thu đủ + xuất hoá đơn + đủ giấy tờ.
+- Đơn chốt từ trước bản cập nhật giao hàng được coi như đã giao hết vào ngày chốt — đơn nào chưa giao thật thì vào sửa / huỷ.
 
 ## Hồ sơ / hợp đồng theo khách hàng
 
@@ -59,7 +64,7 @@ Mở khách hàng → tab **Hồ sơ** để tải lên hợp đồng, biên b�
 Mỗi sáng (mặc định 8h, giờ Việt Nam) mỗi người nhận **1 tin tổng hợp**:
 
 - **Follow-up** đến hạn hôm nay hoặc đã trễ (chưa đánh dấu xong).
-- **Công nợ**: đơn đã **giao hàng thành công** được **10 / 20 / 25 / 30 ngày** mà chưa thu đủ tiền. Đơn chưa bấm "Giao hàng thành công" thì chưa nhắc nợ.
+- **Công nợ**: đơn đã **giao xong** (giao hết 1 lần, hoặc giao lần 2) được **10 / 20 / 25 / 30 ngày** mà chưa thu đủ tiền. Đơn chưa giao, hoặc mới giao lần 1, thì chưa nhắc nợ.
 - **Hoá đơn / giấy tờ**: đơn đã **chốt** được 10 / 20 / 25 / 30 ngày mà chưa xuất hoá đơn hoặc chưa đủ giấy tờ.
 - Sau mốc cuối, nhắc lại mỗi 7 ngày tới khi xong. Mỗi mốc của mỗi đơn chỉ nhắc 1 lần; thu đủ / xuất hoá đơn / đủ giấy tờ thì thôi nhắc phần đó.
 - Nhân viên nhận việc của khách mình phụ trách. Quản lý nhận của toàn bộ khách, kèm tên nhân viên (tắt được).

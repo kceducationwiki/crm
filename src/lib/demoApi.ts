@@ -7,7 +7,7 @@ import { addDays, norm, toDateStr, uid } from './format';
  *  của trình duyệt và mô phỏng đúng luật phân quyền của database.
  * ===================================================================== */
 
-const KEY = 'kc-crm-demo-v4';
+const KEY = 'kc-crm-demo-v5';
 const SESSION = 'kc-crm-demo-session';
 
 interface DB { profiles: Profile[]; customers: Customer[]; seq: number; oseq: number }
@@ -88,13 +88,13 @@ function seed(): DB {
         ...(r.orders ?? []).map(([d, amount, products]) => ({
           id: uid(), customer_id: id, code: ocode(), order_date: day(-d), amount, products, stage: 'won' as Stage,
           paid_amount: d > 60 ? amount : d > 15 ? Math.round(amount * 0.5) : 0, invoice_issued: d > 10, docs_received: d > 30,
-          delivered_date: d > 7 ? day(-(d - 4)) : null,
+          delivered_date: d > 7 ? day(-(d - 4)) : null, delivery1_date: d > 30 && d < 100 ? day(-(d - 1)) : null,
           note: '', created_by: r.owner, created_at: iso(d),
         })),
         // Cơ hội đang theo đuổi (hoặc tạm dừng / thất bại)
         ...(r.stage !== 'won' && (r.ev > 0 || r.stage === 'lost') ? [{
           id: uid(), customer_id: id, code: ocode(), order_date: day(-Math.min(r.age, 20)), amount: r.ev, products: r.interests, stage: r.stage,
-          paid_amount: 0, invoice_issued: false, docs_received: false, delivered_date: null, note: '', created_by: r.owner, created_at: iso(Math.min(r.age, 20)),
+          paid_amount: 0, invoice_issued: false, docs_received: false, delivered_date: null, delivery1_date: null, note: '', created_by: r.owner, created_at: iso(Math.min(r.age, 20)),
         }] : []),
       ],
     };

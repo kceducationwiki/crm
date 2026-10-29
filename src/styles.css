@@ -349,3 +349,6 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .deliv-on { border: 1px solid var(--border); border-style: solid; background: var(--soft); }
 .kcard-deliver { margin-top: 8px; width: 100%; border: 1px dashed var(--primary); background: var(--primary-soft); color: var(--primary); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 .kcard-deliver:hover { background: var(--primary); color: #fff; }
+.row .kcard-deliver { margin-top: 0; flex: 1; }
+.kcard-deliver.alt { border-color: var(--border); background: var(--card); color: var(--fg); font-weight: 500; }
+.kcard-deliver.alt:hover { background: var(--soft); color: var(--fg); }

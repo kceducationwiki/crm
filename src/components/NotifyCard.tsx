@@ -53,7 +53,7 @@ export function NotifyCard() {
       </div>
       <p className="small muted" style={{ margin: 0 }}>
         Mỗi sáng lúc <b>{st.settings.hour}h</b>, hệ thống gửi cho bạn 1 tin tổng hợp: follow-up đến hạn / đã trễ; <b>công nợ</b> của đơn đã{' '}
-        <b>giao hàng được {st.settings.milestones.join(', ')} ngày</b> mà chưa thu đủ tiền; và đơn đã <b>chốt được {st.settings.milestones.join(', ')} ngày</b>{' '}
+        <b>giao xong được {st.settings.milestones.join(', ')} ngày</b> (giao hết 1 lần, hoặc giao lần 2) mà chưa thu đủ tiền; và đơn đã <b>chốt được {st.settings.milestones.join(', ')} ngày</b>{' '}
         mà chưa xuất hoá đơn hoặc chưa đủ giấy tờ
         {st.settings.repeat > 0 && <> (sau mốc cuối nhắc lại mỗi {st.settings.repeat} ngày tới khi xong)</>}.
         {' '}Nhân viên nhận nhắc của khách mình phụ trách.

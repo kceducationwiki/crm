@@ -53,7 +53,7 @@ export const daysSinceDelivery = (o: Order) => (o.delivered_date
 export const orderMissing = (o: Order): string[] => {
   if (!isWon(o)) return [];
   const m: string[] = [];
-  if (!o.delivered_date) m.push('Chưa giao hàng');
+  if (!o.delivered_date) m.push(o.delivery1_date ? 'Chờ giao lần 2' : 'Chưa giao hàng');
   if (orderDebt(o) > 0) m.push('Còn nợ ' + moneyShort(orderDebt(o)));
   if (!o.invoice_issued) m.push('Chưa xuất hoá đơn');
   if (!o.docs_received) m.push('Thiếu giấy tờ');

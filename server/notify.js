@@ -317,14 +317,14 @@ export async function buildDigests(today, settings, onlyNew = true) {
   }
 
   const orders = await q(
-    `select o.id, o.code, o.order_date::text as order_date, o.delivered_date::text as delivered_date,
+    `select o.id, o.code, o.order_date::text as order_date, o.delivered_date::text as delivered_date, o.delivery1_date::text as delivery1_date,
             o.amount, o.paid_amount, o.invoice_issued, o.docs_received, o.note,
             c.school_name, c.code as customer_code, c.owner_id
        from orders o join customers c on c.id = o.customer_id
       where o.stage = 'won' and o.order_date <= $1::date
         and (o.paid_amount < o.amount or not o.invoice_issued or not o.docs_received)`, [today]);
   // 2 "đồng hồ" riêng cho mỗi đơn:
-  //  - CÔNG NỢ: tính từ ngày GIAO HÀNG THÀNH CÔNG (chưa giao thì chưa nhắc nợ)   → khoá debt:<đơn>:<mốc>
+  //  - CÔNG NỢ: tính từ ngày GIAO XONG (giao hết 1 lần, hoặc giao lần 2 nếu giao 2 lần); chưa giao xong thì chưa nhắc nợ   → khoá debt:<đơn>:<mốc>
   //  - HOÁ ĐƠN / GIẤY TỜ: tính từ ngày CHỐT ĐƠN                                  → khoá ord:<đơn>:<mốc>
   const plan = orders.map((o) => {
     const debt = Math.max(0, Number(o.amount) - Number(o.paid_amount));
@@ -349,7 +349,7 @@ export async function buildDigests(today, settings, onlyNew = true) {
     let debtShown = 0;
     if (debtKey && !sent.has(debtKey)) {
       orderKeys.push(debtKey); debtShown = debt;
-      parts.push({ when: `giao hàng ${daysBetween(o.delivered_date, today)} ngày trước (${dmy(o.delivered_date)})`, issues: [`còn nợ ${money(debt)}`] });
+      parts.push({ when: `${o.delivery1_date ? "giao lần 2" : "giao hàng"} ${daysBetween(o.delivered_date, today)} ngày trước (${dmy(o.delivered_date)})`, issues: [`còn nợ ${money(debt)}`] });
     }
     if (paperKey && !sent.has(paperKey)) {
       orderKeys.push(paperKey);
@@ -359,7 +359,7 @@ export async function buildDigests(today, settings, onlyNew = true) {
       parts.push({ when: `chốt ${daysBetween(o.order_date, today)} ngày trước (${dmy(o.order_date)})`, issues });
     }
     if (!parts.length) continue;
-    if (!o.delivered_date) parts.push({ when: '', issues: ['chưa giao hàng'] });
+    if (!o.delivered_date) parts.push({ when: '', issues: [o.delivery1_date ? `mới giao lần 1 (${dmy(o.delivery1_date)}), chưa giao lần 2` : 'chưa giao hàng'] });
     fanout([o.owner_id], 'orders', { ...o, debt: debtShown, parts, owner: names.get(o.owner_id) || 'Chưa gán' });
   }
   return { byUser, orderKeys };

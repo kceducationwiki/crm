@@ -9,7 +9,7 @@ import { downloadCsv, fmtDate, isOpen, isWon, moneyShort, norm, orderDebt, order
 
 type View = 'debt' | 'undelivered' | 'won' | 'invoice' | 'docs' | 'done' | 'open' | 'all';
 const VIEWS: [View, string][] = [
-  ['debt', 'Còn công nợ'], ['undelivered', 'Chưa giao hàng'], ['invoice', 'Chưa xuất hoá đơn'], ['docs', 'Thiếu giấy tờ'],
+  ['debt', 'Còn công nợ'], ['undelivered', 'Chưa giao xong'], ['invoice', 'Chưa xuất hoá đơn'], ['docs', 'Thiếu giấy tờ'],
   ['won', 'Tất cả đơn đã chốt'], ['done', 'Hoàn tất'], ['open', 'Đang theo đuổi'], ['all', 'Tất cả'],
 ];
 
@@ -60,8 +60,8 @@ export function OrdersPage() {
       : v === 'won' ? isWon(o) : v === 'done' ? orderDone(o) : v === 'open' ? isOpen(o) : true).length;
 
   const exportCsv = () => downloadCsv(`don-hang-${todayStr()}.csv`, [
-    ['Mã đơn', 'Khách hàng', 'Mã KH', 'Giai đoạn', 'Ngày', 'Ngày giao hàng', 'Sản phẩm', 'Giá trị', 'Đã thu', 'Công nợ', 'Đã xuất hoá đơn', 'Đủ giấy tờ', 'Hoàn tất', 'Phụ trách', 'Ghi chú'],
-    ...list.map(({ o, c }) => [o.code, c.school_name, c.code, stageMeta(o.stage).label, fmtDate(o.order_date), o.delivered_date ? fmtDate(o.delivered_date) : '', o.products.join(', '), o.amount,
+    ['Mã đơn', 'Khách hàng', 'Mã KH', 'Giai đoạn', 'Ngày', 'Giao lần 1', 'Giao xong', 'Sản phẩm', 'Giá trị', 'Đã thu', 'Công nợ', 'Đã xuất hoá đơn', 'Đủ giấy tờ', 'Hoàn tất', 'Phụ trách', 'Ghi chú'],
+    ...list.map(({ o, c }) => [o.code, c.school_name, c.code, stageMeta(o.stage).label, fmtDate(o.order_date), o.delivery1_date ? fmtDate(o.delivery1_date) : '', o.delivered_date ? fmtDate(o.delivered_date) : '', o.products.join(', '), o.amount,
       isWon(o) ? o.paid_amount : '', isWon(o) ? orderDebt(o) : '', isWon(o) ? (o.invoice_issued ? 'Có' : 'Chưa') : '', isWon(o) ? (o.docs_received ? 'Có' : 'Chưa') : '',
       isWon(o) ? (orderDone(o) ? 'Có' : 'Chưa') : '', nameOf(c.owner_id), o.note]),
   ]);

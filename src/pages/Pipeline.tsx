@@ -4,7 +4,8 @@ import { useNav } from '../lib/nav';
 import { Avatar, Button, PageHeader, Select, toast } from '../components/ui';
 import { NewOrderModal } from '../components/NewOrderModal';
 import { OPEN_STAGES, STAGES, stageMeta } from '../lib/constants';
-import { setDelivered, setOrderStage } from '../lib/deals';
+import { markDelivery, setOrderStage } from '../lib/deals';
+import type { DeliveryStep } from '../lib/deals';
 import { isWon, moneyShort, orderDebt, orderDone, todayStr } from '../lib/format';
 import type { Customer, Order, Stage } from '../lib/types';
 
@@ -40,8 +41,11 @@ export function PipelinePage() {
     reload();
   };
 
-  const deliver = async (o: Order, c: Customer) => {
-    try { await setDelivered(api, me!.id, c, o, todayStr()); toast.ok(`🚚 Đã ghi nhận giao hàng ${o.code} — công nợ tính từ hôm nay`); } catch (e) { toast.err(e); }
+  const deliver = async (o: Order, c: Customer, step: DeliveryStep) => {
+    try {
+      await markDelivery(api, me!.id, c, o, step, todayStr());
+      toast.ok(step === 'first' ? `🚚 Đã giao lần 1 ${o.code} — chờ giao lần 2` : `🚚 Đã giao xong ${o.code} — công nợ tính từ hôm nay`);
+    } catch (e) { toast.err(e); }
     reload();
   };
 
@@ -67,7 +71,7 @@ export function PipelinePage() {
               <div className="kcol-head"><span className={`badge tone-${s.tone}`}><span className="dot" />{s.label}</span><span className="row gap4"><span className="muted">{items.length}</span>
                 {OPEN_STAGES.includes(s.key) && <button type="button" className="kcol-add" title={`Thêm đơn vào "${s.label}"`} aria-label={`Thêm đơn vào ${s.label}`} onClick={() => setAdding(s.key)}>+</button>}</span></div>
               {sum > 0 && <div className="kcol-sum">{s.key === 'won' ? 'Đã chốt, chưa hoàn tất' : 'Dự kiến'}: {moneyShort(sum)}</div>}
-              {items.map(({ o, c }) => <DealCard key={o.id} o={o} c={c} owner={isAdmin ? nameOf(c.owner_id) : ''} onOpen={() => openCustomer(c.id, 'orders')} onDeliver={() => deliver(o, c)} />)}
+              {items.map(({ o, c }) => <DealCard key={o.id} o={o} c={c} owner={isAdmin ? nameOf(c.owner_id) : ''} onOpen={() => openCustomer(c.id, 'orders')} onDeliver={(step) => deliver(o, c, step)} />)}
               {s.key === 'won' && doneCount > 0 && (
                 <a href="#/orders" className="small" style={{ padding: '6px 4px', display: 'block' }}>✓ {doneCount} đơn đã hoàn tất — xem ở Đơn hàng & công nợ →</a>
               )}
@@ -79,7 +83,7 @@ export function PipelinePage() {
   );
 }
 
-function DealCard({ o, c, owner, onOpen, onDeliver }: { o: Order; c: Customer; owner: string; onOpen: () => void; onDeliver: () => void }) {
+function DealCard({ o, c, owner, onOpen, onDeliver }: { o: Order; c: Customer; owner: string; onOpen: () => void; onDeliver: (step: DeliveryStep) => void }) {
   const debt = orderDebt(o);
   return (
     <div className="kcard" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', o.id)} onClick={onOpen}>
@@ -92,16 +96,23 @@ function DealCard({ o, c, owner, onOpen, onDeliver }: { o: Order; c: Customer; o
       {isWon(o) && (
         <div className="row gap4 wrap" style={{ marginTop: 6 }}>
           {orderDone(o) ? <span className="badge tone-green">Hoàn tất</span> : <>
-            {!o.delivered_date && <span className="badge tone-orange">Chưa giao hàng</span>}
+            {!o.delivered_date && <span className="badge tone-orange">{o.delivery1_date ? 'Chờ giao lần 2' : 'Chưa giao hàng'}</span>}
             {debt > 0 ? <span className="badge tone-red">Còn nợ {moneyShort(debt)}</span>
               : o.delivered_date && <span className="badge tone-orange">{!o.invoice_issued ? 'Chưa xuất HĐ' : 'Thiếu giấy tờ'}</span>}
           </>}
         </div>
       )}
-      {isWon(o) && !o.delivered_date && (
-        <button type="button" className="kcard-deliver" title="Ghi nhận giao hàng hôm nay — công nợ tính từ hôm nay"
-          onClick={(e) => { e.stopPropagation(); onDeliver(); }}>✓ Giao hàng thành công</button>
-      )}
+      {isWon(o) && !o.delivered_date && (o.delivery1_date ? (
+        <button type="button" className="kcard-deliver" title="Giao đợt 2 hôm nay — công nợ tính từ hôm nay"
+          onClick={(e) => { e.stopPropagation(); onDeliver('second'); }}>✓ Giao lần 2 (đủ hàng)</button>
+      ) : (
+        <div className="row gap4" style={{ marginTop: 8 }}>
+          <button type="button" className="kcard-deliver alt" title="Giao một phần, còn 1 đợt nữa — chưa tính công nợ"
+            onClick={(e) => { e.stopPropagation(); onDeliver('first'); }}>Giao lần 1</button>
+          <button type="button" className="kcard-deliver" title="Giao hết hàng hôm nay — công nợ tính từ hôm nay"
+            onClick={(e) => { e.stopPropagation(); onDeliver('full'); }}>✓ Giao hết</button>
+        </div>
+      ))}
     </div>
   );
 }

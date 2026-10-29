@@ -206,3 +206,9 @@ do $$ begin
     insert into app_settings (key, value) values ('migrated_delivered_v6', 'done');
   end if;
 end $$;
+
+-- =====================================================================
+--  v7: giao hàng tối đa 2 lần. delivery1_date = ngày giao lần 1 (giao chưa đủ);
+--  delivered_date = ngày GIAO XONG (giao hết 1 lần, hoặc giao lần 2) → công nợ tính từ ngày này.
+-- =====================================================================
+alter table orders add column if not exists delivery1_date date;
